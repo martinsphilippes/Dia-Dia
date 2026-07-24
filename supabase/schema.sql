@@ -265,6 +265,13 @@ insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_typ
 values ('avatars', 'avatars', true, 26214400, null)  -- até 25MB, qualquer imagem (inclui HEIC do iPhone)
 on conflict (id) do nothing;
 
+-- IMPORTANTE: a policy de SELECT abaixo é obrigatória. O upload do avatar faz
+-- INSERT ... RETURNING, e sem uma policy de SELECT o RETURNING falha o RLS
+-- (erro "new row violates row-level security policy"). Como o bucket é público,
+-- liberamos SELECT para todos nesse bucket.
+create policy avatars_select_public on storage.objects
+  for select to public
+  using (bucket_id = 'avatars');
 create policy avatars_insert_own on storage.objects
   for insert to authenticated
   with check (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
@@ -274,3 +281,7 @@ create policy avatars_update_own on storage.objects
 create policy avatars_delete_own on storage.objects
   for delete to authenticated
   using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- OBS de plataforma: os tokens de acesso devem ser HS256 (chave JWT legada).
+-- O serviço de Storage/Realtime deste projeto não valida tokens ES256
+-- (chaves de assinatura assimétricas). Mantenha a chave HS256 como "in_use".
