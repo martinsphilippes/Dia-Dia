@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-inter: "Inter", system-ui, -apple-system, sans-serif;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  @apply bg-slate-50 text-ink antialiased;
+  overscroll-behavior-y: none;
+}
+
+/* Court line pattern usado no fundo */
+.court-bg {
+  background-color: #104b32;
+  background-image:
+    radial-gradient(1200px 600px at 100% -10%, rgba(215, 242, 64, 0.18), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(31, 180, 108, 0.35), transparent 55%);
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
+  }
+  .btn-primary {
+    @apply btn bg-court-600 text-white hover:bg-court-700 shadow-card;
+  }
+  .btn-ball {
+    @apply btn bg-ball text-ink hover:bg-ball-deep;
+  }
+  .btn-ghost {
+    @apply btn bg-white text-ink ring-1 ring-slate-200 hover:bg-slate-50;
+  }
+  .input {
+    @apply w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-court-500 focus:ring-2 focus:ring-court-200;
+  }
+  .label {
+    @apply mb-1.5 block text-sm font-medium text-slate-700;
+  }
+  .chip {
+    @apply cursor-pointer select-none rounded-full border px-3.5 py-2 text-sm font-medium transition;
+  }
+  .chip-on {
+    @apply border-court-500 bg-court-50 text-court-700;
+  }
+  .chip-off {
+    @apply border-slate-200 bg-white text-slate-600 hover:border-slate-300;
+  }
+}
+
+/* Scrollbar discreta */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(15, 23, 42, 0.15);
+  border-radius: 999px;
+}
