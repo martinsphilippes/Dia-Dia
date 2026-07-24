@@ -12,6 +12,7 @@ export type Profile = {
   birthdate: string | null;
   gender: string | null;
   city: string | null;
+  phone: string | null;
   bio: string | null;
   skill_class: SkillClass;
   dominant_hand: DominantHand | null;
@@ -21,11 +22,39 @@ export type Profile = {
   latitude: number | null;
   longitude: number | null;
   search_radius_km: number;
+  is_admin: boolean;
   onboarded: boolean;
   created_at: string;
   updated_at: string;
   // Presente apenas quando vem de get_discovery_profiles
   distance_km?: number | null;
+};
+
+// Linhas retornadas pelas RPCs de admin
+export type AdminProfileRow = {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  city: string | null;
+  skill_class: SkillClass;
+  play_format: PlayFormat;
+  onboarded: boolean;
+  is_admin: boolean;
+  latitude: number | null;
+  longitude: number | null;
+  search_radius_km: number;
+  created_at: string;
+};
+
+export type AdminMatchRow = {
+  match_id: string;
+  created_at: string;
+  a_name: string;
+  a_phone: string | null;
+  b_name: string;
+  b_phone: string | null;
+  message_count: number;
 };
 
 export type MatchSummary = {

@@ -2,17 +2,20 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { IconCards, IconChat, IconUser } from "@/components/icons";
+import { IconCards, IconChat, IconShield, IconUser } from "@/components/icons";
 import { cx } from "@/lib/utils";
 
-const items = [
+const baseItems = [
   { href: "/discover", label: "Descobrir", Icon: IconCards },
   { href: "/matches", label: "Matches", Icon: IconChat },
   { href: "/profile", label: "Perfil", Icon: IconUser },
 ];
 
-export function BottomNav({ unread }: { unread: number }) {
+const adminItem = { href: "/admin", label: "Gestão", Icon: IconShield };
+
+export function BottomNav({ unread, isAdmin }: { unread: number; isAdmin?: boolean }) {
   const pathname = usePathname();
+  const items = isAdmin ? [...baseItems, adminItem] : baseItems;
 
   // Esconde a navegação dentro de uma conversa (tela cheia)
   const inChat = /^\/matches\/[^/]+$/.test(pathname);
@@ -47,8 +50,9 @@ export function BottomNav({ unread }: { unread: number }) {
   );
 }
 
-export function SideNav({ unread }: { unread: number }) {
+export function SideNav({ unread, isAdmin }: { unread: number; isAdmin?: boolean }) {
   const pathname = usePathname();
+  const items = isAdmin ? [...baseItems, adminItem] : baseItems;
   return (
     <div className="hidden md:flex md:flex-col md:gap-1">
       {items.map(({ href, label, Icon }) => {

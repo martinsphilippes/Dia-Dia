@@ -48,6 +48,7 @@ export function ProfileEditor({
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState(profile.name || "");
+  const [phone, setPhone] = useState(profile.phone || "");
   const [birthdate, setBirthdate] = useState(profile.birthdate || "");
   const [gender, setGender] = useState(profile.gender || "");
   const [bio, setBio] = useState(profile.bio || "");
@@ -142,6 +143,8 @@ export function ProfileEditor({
     setSaved(false);
 
     if (name.trim().length < 2) return setError("Digite seu nome.");
+    if (phone.replace(/\D/g, "").length < 8)
+      return setError("Informe um telefone válido (com DDD).");
     if (!hasLocation)
       return setError("Toque em “Usar minha localização” para encontrar tenistas perto de você.");
 
@@ -151,6 +154,7 @@ export function ProfileEditor({
         .from("profiles")
         .update({
           name: name.trim(),
+          phone: phone.trim() || null,
           birthdate: birthdate || null,
           gender: gender || null,
           bio: bio.trim() || null,
@@ -223,6 +227,20 @@ export function ProfileEditor({
         <div className="sm:col-span-2">
           <label className="label">Nome</label>
           <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
+        </div>
+        <div className="sm:col-span-2">
+          <label className="label">📱 Telefone / WhatsApp</label>
+          <input
+            type="tel"
+            className="input"
+            placeholder="(11) 99999-9999"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            autoComplete="tel"
+          />
+          <p className="mt-1 text-xs text-slate-400">
+            Fica visível só pra você e pra gestão — usado pra combinar os jogos.
+          </p>
         </div>
         <div>
           <label className="label">Data de nascimento</label>

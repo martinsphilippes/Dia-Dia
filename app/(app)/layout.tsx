@@ -20,10 +20,11 @@ export default async function AppLayout({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("onboarded")
+    .select("onboarded, is_admin")
     .eq("id", user.id)
     .single();
   if (!profile?.onboarded) redirect("/onboarding");
+  const isAdmin = !!profile?.is_admin;
 
   const { data: matches } = await supabase.rpc("get_my_matches");
   const unread = (matches as unknown as MatchSummary[] | null)?.reduce(
@@ -41,7 +42,7 @@ export default async function AppLayout({
             MatchPoint
           </Link>
           <nav className="mt-8 flex-1">
-            <SideNav unread={unread} />
+            <SideNav unread={unread} isAdmin={isAdmin} />
           </nav>
           <form action="/auth/signout" method="post">
             <button className="w-full rounded-xl px-4 py-3 text-left text-sm font-medium text-slate-400 transition hover:bg-slate-100 hover:text-slate-600">
@@ -53,7 +54,7 @@ export default async function AppLayout({
         <main className="min-h-screen w-full">{children}</main>
       </div>
 
-      <BottomNav unread={unread} />
+      <BottomNav unread={unread} isAdmin={isAdmin} />
     </div>
   );
 }
