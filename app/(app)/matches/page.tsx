@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { SKILL_LABELS, type MatchSummary } from "@/lib/types";
+import type { MatchSummary } from "@/lib/types";
 import { initials, timeAgo } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";

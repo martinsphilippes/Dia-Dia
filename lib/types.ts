@@ -1,39 +1,45 @@
-export type SkillLevel = "iniciante" | "intermediario" | "avancado" | "competitivo";
 export type PlayFormat = "simples" | "duplas" | "ambos";
 export type DominantHand = "destro" | "canhoto";
 export type SwipeDirection = "like" | "pass";
+
+// Nível por classe do tênis: 1 = 1ª classe (melhor) ... 5 = 5ª classe (iniciante)
+export type SkillClass = 1 | 2 | 3 | 4 | 5;
+export const SKILL_CLASSES: SkillClass[] = [1, 2, 3, 4, 5];
 
 export type Profile = {
   id: string;
   name: string;
   birthdate: string | null;
   gender: string | null;
-  city: string;
-  state: string | null;
-  country: string | null;
+  city: string | null;
   bio: string | null;
-  skill_level: SkillLevel;
+  skill_class: SkillClass;
   dominant_hand: DominantHand | null;
   play_format: PlayFormat;
   availability: string[] | null;
   avatar_url: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  search_radius_km: number;
   onboarded: boolean;
   created_at: string;
   updated_at: string;
-}
+  // Presente apenas quando vem de get_discovery_profiles
+  distance_km?: number | null;
+};
 
 export type MatchSummary = {
   match_id: string;
   matched_at: string;
   other_id: string;
   other_name: string;
-  other_city: string;
+  other_city: string | null;
   other_avatar_url: string | null;
-  other_skill: SkillLevel;
+  other_class: SkillClass;
   last_message: string | null;
   last_message_at: string | null;
   unread_count: number;
-}
+};
 
 export type Message = {
   id: string;
@@ -42,21 +48,23 @@ export type Message = {
   content: string;
   read: boolean;
   created_at: string;
-}
-
-// Metadados de UI para os enums
-export const SKILL_LABELS: Record<SkillLevel, string> = {
-  iniciante: "Iniciante",
-  intermediario: "Intermediário",
-  avancado: "Avançado",
-  competitivo: "Competitivo",
 };
 
-export const SKILL_DESCRIPTIONS: Record<SkillLevel, string> = {
-  iniciante: "Estou começando, quero trocar bola e me divertir",
-  intermediario: "Jogo com regularidade e mantenho rallies",
-  avancado: "Bom controle, saque e consistência",
-  competitivo: "Disputo torneios / ranking",
+// Rótulos de UI
+export const CLASS_LABELS: Record<SkillClass, string> = {
+  1: "1ª classe",
+  2: "2ª classe",
+  3: "3ª classe",
+  4: "4ª classe",
+  5: "5ª classe",
+};
+
+export const CLASS_DESCRIPTIONS: Record<SkillClass, string> = {
+  1: "Nível mais alto — disputo torneios e ranking",
+  2: "Avançado — bom saque, controle e consistência",
+  3: "Intermediário — jogo com regularidade",
+  4: "Em evolução — já mantenho rallies",
+  5: "Iniciante — estou começando, quero trocar bola",
 };
 
 export const FORMAT_LABELS: Record<PlayFormat, string> = {
@@ -70,82 +78,10 @@ export const HAND_LABELS: Record<DominantHand, string> = {
   canhoto: "Canhoto",
 };
 
-export const WEEKDAYS = [
-  "Seg",
-  "Ter",
-  "Qua",
-  "Qui",
-  "Sex",
-  "Sáb",
-  "Dom",
-] as const;
+export const RADIUS_OPTIONS = [5, 10, 15, 20] as const;
 
-export const PERIODS = ["Manhã", "Tarde", "Noite"] as const;
-
-type MatchRow = {
-  id: string;
-  player_a_id: string;
-  player_b_id: string;
-  created_at: string;
-};
-
-type SwipeRow = {
-  id: string;
-  swiper_id: string;
-  swiped_id: string;
-  direction: SwipeDirection;
-  created_at: string;
-};
-
-// Tipagem mínima do banco para os clients do Supabase
-export type Database = {
-  public: {
-    Tables: {
-      profiles: {
-        Row: Profile;
-        Insert: Partial<Profile> & { id: string; name: string; city: string };
-        Update: Partial<Profile>;
-        Relationships: [];
-      };
-      swipes: {
-        Row: SwipeRow;
-        Insert: {
-          swiper_id: string;
-          swiped_id: string;
-          direction: SwipeDirection;
-        };
-        Update: Partial<SwipeRow>;
-        Relationships: [];
-      };
-      matches: {
-        Row: MatchRow;
-        Insert: Partial<MatchRow>;
-        Update: Partial<MatchRow>;
-        Relationships: [];
-      };
-      messages: {
-        Row: Message;
-        Insert: { match_id: string; sender_id: string; content: string };
-        Update: Partial<Pick<Message, "read">>;
-        Relationships: [];
-      };
-    };
-    Views: Record<string, never>;
-    Functions: {
-      get_discovery_profiles: {
-        Args: Record<string, never>;
-        Returns: Profile[];
-      };
-      get_my_matches: {
-        Args: Record<string, never>;
-        Returns: MatchSummary[];
-      };
-    };
-    Enums: {
-      skill_level: SkillLevel;
-      play_format: PlayFormat;
-      dominant_hand: DominantHand;
-      swipe_direction: SwipeDirection;
-    };
-  };
-};
+export function formatDistance(km: number | null | undefined): string {
+  if (km == null) return "";
+  if (km < 1) return "menos de 1 km";
+  return `a ${Math.round(km)} km`;
+}

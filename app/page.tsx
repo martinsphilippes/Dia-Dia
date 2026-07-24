@@ -80,9 +80,9 @@ export default async function LandingPage() {
             <div className="p-5">
               <div className="flex items-baseline justify-between">
                 <h3 className="text-xl font-bold">Marina, 28</h3>
-                <span className="text-sm text-slate-500">2,4 km</span>
+                <span className="text-sm text-slate-500">a 2 km</span>
               </div>
-              <p className="text-sm text-slate-500">São Paulo • Intermediário</p>
+              <p className="text-sm text-slate-500">📍 no seu raio • 3ª classe</p>
               <p className="mt-3 text-sm text-slate-600">
                 “Jogo nos fins de semana de manhã. Procuro alguém para trocar
                 bola e evoluir 🎾”
@@ -91,8 +91,8 @@ export default async function LandingPage() {
                 <div className="grid h-14 w-14 place-items-center rounded-full bg-red-50 text-2xl ring-1 ring-red-100">
                   ✕
                 </div>
-                <div className="grid h-16 w-16 place-items-center rounded-full bg-court-50 text-3xl ring-1 ring-court-200">
-                  💚
+                <div className="grid h-16 w-16 place-items-center rounded-full bg-white text-3xl ring-2 ring-court-500">
+                  🎾
                 </div>
               </div>
             </div>

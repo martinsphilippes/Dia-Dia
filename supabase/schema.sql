@@ -5,31 +5,33 @@
 -- ============================================================================
 
 -- ---------- Enums ----------
-create type skill_level    as enum ('iniciante', 'intermediario', 'avancado', 'competitivo');
 create type play_format    as enum ('simples', 'duplas', 'ambos');
 create type dominant_hand  as enum ('destro', 'canhoto');
 create type swipe_direction as enum ('like', 'pass');
 
 -- ---------- Tabela: profiles ----------
+-- skill_class: 1 = 1ª classe (melhor) ... 5 = 5ª classe (iniciante)
+-- A localização (latitude/longitude) é capturada em tempo real pelo navegador.
+-- search_radius_km: raio (km) em que a pessoa quer encontrar parceiros.
 create table public.profiles (
-  id            uuid primary key references auth.users(id) on delete cascade,
-  name          text not null,
-  birthdate     date,
-  gender        text,
-  city          text not null,
-  state         text,
-  country       text default 'Brasil',
-  bio           text,
-  skill_level   skill_level not null default 'iniciante',
-  dominant_hand dominant_hand,
-  play_format   play_format not null default 'ambos',
-  availability  text[] default '{}',
-  avatar_url    text,
-  onboarded     boolean not null default false,
-  created_at    timestamptz not null default now(),
-  updated_at    timestamptz not null default now()
+  id               uuid primary key references auth.users(id) on delete cascade,
+  name             text not null,
+  birthdate        date,
+  gender           text,
+  city             text,               -- opcional, só para exibição (reverse geocode)
+  bio              text,
+  skill_class      smallint not null default 5 check (skill_class between 1 and 5),
+  dominant_hand    dominant_hand,
+  play_format      play_format not null default 'ambos',
+  availability     text[] default '{}',
+  avatar_url       text,
+  latitude         double precision,
+  longitude        double precision,
+  search_radius_km integer not null default 20,
+  onboarded        boolean not null default false,
+  created_at       timestamptz not null default now(),
+  updated_at       timestamptz not null default now()
 );
-create index profiles_city_idx on public.profiles (lower(city));
 
 -- ---------- Tabela: swipes ----------
 create table public.swipes (
@@ -145,41 +147,53 @@ create trigger swipes_handle_match
 -- Funções RPC usadas pelo app
 -- ============================================================================
 
--- Perfis para descoberta: mesma cidade, ainda não avaliados, exceto o próprio
-create or replace function public.get_discovery_profiles(
-  p_limit integer default 20,
-  p_format play_format default null,
-  p_skill skill_level default null
+-- Descoberta: tenistas dentro do raio escolhido (haversine), ainda não
+-- avaliados e que ainda não são match. Retorna a distância em km.
+create or replace function public.get_discovery_profiles(p_limit integer default 40)
+returns table (
+  id uuid, name text, birthdate date, gender text, city text, bio text,
+  skill_class smallint, dominant_hand dominant_hand, play_format play_format,
+  availability text[], avatar_url text,
+  latitude double precision, longitude double precision, distance_km double precision
 )
-returns setof public.profiles
 language sql stable security definer set search_path to 'public' as $$
-  select p.*
-  from public.profiles p
-  join public.profiles me on me.id = auth.uid()
-  where p.id <> auth.uid()
+  with me as (select * from public.profiles where id = auth.uid())
+  select p.id, p.name, p.birthdate, p.gender, p.city, p.bio,
+    p.skill_class, p.dominant_hand, p.play_format, p.availability, p.avatar_url,
+    p.latitude, p.longitude,
+    (6371 * acos(least(1, greatest(-1,
+      cos(radians(m.latitude)) * cos(radians(p.latitude)) * cos(radians(p.longitude - m.longitude))
+      + sin(radians(m.latitude)) * sin(radians(p.latitude))
+    )))) as distance_km
+  from public.profiles p, me m
+  where p.id <> m.id
     and p.onboarded = true
-    and lower(p.city) = lower(me.city)
-    and (p_format is null or p.play_format = p_format or p.play_format = 'ambos')
-    and (p_skill is null or p.skill_level = p_skill)
-    and not exists (
-      select 1 from public.swipes s
-      where s.swiper_id = auth.uid() and s.swiped_id = p.id
-    )
-  order by random()
-  limit greatest(1, least(p_limit, 50));
+    and p.latitude is not null and p.longitude is not null
+    and m.latitude is not null and m.longitude is not null
+    and (6371 * acos(least(1, greatest(-1,
+      cos(radians(m.latitude)) * cos(radians(p.latitude)) * cos(radians(p.longitude - m.longitude))
+      + sin(radians(m.latitude)) * sin(radians(p.latitude))
+    )))) <= coalesce(m.search_radius_km, 20)
+    and not exists (select 1 from public.swipes s
+      where s.swiper_id = m.id and s.swiped_id = p.id)
+    and not exists (select 1 from public.matches mt
+      where (mt.player_a_id = m.id and mt.player_b_id = p.id)
+         or (mt.player_a_id = p.id and mt.player_b_id = m.id))
+  order by distance_km asc
+  limit greatest(1, least(p_limit, 100));
 $$;
 
 -- Matches do usuário com última mensagem e não-lidas
 create or replace function public.get_my_matches()
 returns table (
   match_id uuid, matched_at timestamptz, other_id uuid, other_name text,
-  other_city text, other_avatar_url text, other_skill skill_level,
+  other_city text, other_avatar_url text, other_class smallint,
   last_message text, last_message_at timestamptz, unread_count bigint
 )
 language sql stable security definer set search_path to 'public' as $$
   select
     m.id, m.created_at,
-    other.id, other.name, other.city, other.avatar_url, other.skill_level,
+    other.id, other.name, other.city, other.avatar_url, other.skill_class,
     lm.content, lm.created_at,
     coalesce(uc.cnt, 0)
   from public.matches m
@@ -247,8 +261,8 @@ alter publication supabase_realtime add table public.messages;
 -- ============================================================================
 -- Storage: bucket público de avatares
 -- ============================================================================
-insert into storage.buckets (id, name, public)
-values ('avatars', 'avatars', true)
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('avatars', 'avatars', true, 26214400, null)  -- até 25MB, qualquer imagem (inclui HEIC do iPhone)
 on conflict (id) do nothing;
 
 create policy avatars_insert_own on storage.objects

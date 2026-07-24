@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Chat } from "@/components/chat";
 import { IconBack } from "@/components/icons";
-import { SKILL_LABELS, type Message, type Profile } from "@/lib/types";
+import { CLASS_LABELS, type Message, type Profile } from "@/lib/types";
 import { calcAge, initials } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -82,7 +82,7 @@ export default async function ChatPage({
             {age ? `, ${age}` : ""}
           </h1>
           <p className="truncate text-xs text-slate-500">
-            📍 {otherProfile.city} · 🎾 {SKILL_LABELS[otherProfile.skill_level]}
+            📍 {otherProfile.city ?? "por perto"} · 🎾 {CLASS_LABELS[otherProfile.skill_class]}
           </p>
         </div>
       </header>

@@ -4,22 +4,37 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
+  CLASS_DESCRIPTIONS,
+  CLASS_LABELS,
   DominantHand,
   FORMAT_LABELS,
   HAND_LABELS,
   PlayFormat,
   Profile,
-  SKILL_DESCRIPTIONS,
-  SKILL_LABELS,
-  SkillLevel,
+  RADIUS_OPTIONS,
+  SKILL_CLASSES,
+  SkillClass,
 } from "@/lib/types";
 import { cx, initials } from "@/lib/utils";
 
-const SKILLS: SkillLevel[] = ["iniciante", "intermediario", "avancado", "competitivo"];
 const FORMATS: PlayFormat[] = ["simples", "duplas", "ambos"];
 const HANDS: DominantHand[] = ["destro", "canhoto"];
 const AVAILABILITY = ["Manhã", "Tarde", "Noite", "Dias de semana", "Fim de semana"];
 const GENDERS = ["Masculino", "Feminino", "Outro"];
+
+// Reverse geocode leve (sem chave) só para exibir o nome do bairro/cidade.
+async function reverseGeocode(lat: number, lng: number): Promise<string | null> {
+  try {
+    const r = await fetch(
+      `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=pt`
+    );
+    if (!r.ok) return null;
+    const j = await r.json();
+    return j.city || j.locality || j.principalSubdivision || null;
+  } catch {
+    return null;
+  }
+}
 
 export function ProfileEditor({
   profile,
@@ -35,20 +50,27 @@ export function ProfileEditor({
   const [name, setName] = useState(profile.name || "");
   const [birthdate, setBirthdate] = useState(profile.birthdate || "");
   const [gender, setGender] = useState(profile.gender || "");
-  const [city, setCity] = useState(profile.city || "");
-  const [state, setState] = useState(profile.state || "");
-  const [country, setCountry] = useState(profile.country || "Brasil");
   const [bio, setBio] = useState(profile.bio || "");
-  const [skill, setSkill] = useState<SkillLevel>(profile.skill_level || "iniciante");
+  const [skillClass, setSkillClass] = useState<SkillClass>(profile.skill_class || 5);
   const [format, setFormat] = useState<PlayFormat>(profile.play_format || "ambos");
   const [hand, setHand] = useState<DominantHand | "">(profile.dominant_hand || "");
   const [availability, setAvailability] = useState<string[]>(profile.availability || []);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(profile.avatar_url);
+  const [radius, setRadius] = useState<number>(profile.search_radius_km || 20);
+
+  // Localização
+  const [lat, setLat] = useState<number | null>(profile.latitude);
+  const [lng, setLng] = useState<number | null>(profile.longitude);
+  const [cityLabel, setCityLabel] = useState<string | null>(profile.city);
+  const [locating, setLocating] = useState(false);
+  const [locError, setLocError] = useState<string | null>(null);
 
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+
+  const hasLocation = lat != null && lng != null;
 
   function toggleAvail(a: string) {
     setAvailability((prev) =>
@@ -56,26 +78,59 @@ export function ProfileEditor({
     );
   }
 
+  function getLocation() {
+    setLocError(null);
+    if (!("geolocation" in navigator)) {
+      setLocError("Seu dispositivo não suporta localização.");
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const la = pos.coords.latitude;
+        const ln = pos.coords.longitude;
+        setLat(la);
+        setLng(ln);
+        const c = await reverseGeocode(la, ln);
+        if (c) setCityLabel(c);
+        setLocating(false);
+      },
+      (err) => {
+        setLocating(false);
+        setLocError(
+          err.code === err.PERMISSION_DENIED
+            ? "Permissão de localização negada. Habilite nos ajustes do navegador para achar tenistas perto de você."
+            : "Não consegui pegar sua localização. Tente de novo."
+        );
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+    );
+  }
+
   async function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      setError("Imagem muito grande (máx. 5MB).");
+    if (file.size > 25 * 1024 * 1024) {
+      setError("Imagem muito grande (máx. 25MB).");
       return;
     }
     setError(null);
     setUploading(true);
     try {
-      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
       const path = `${profile.id}/${Date.now()}.${ext}`;
       const { error: upErr } = await supabase.storage
         .from("avatars")
-        .upload(path, file, { upsert: true, cacheControl: "3600" });
+        .upload(path, file, {
+          upsert: true,
+          cacheControl: "3600",
+          contentType: file.type || undefined,
+        });
       if (upErr) throw upErr;
       const { data } = supabase.storage.from("avatars").getPublicUrl(path);
-      setAvatarUrl(data.publicUrl);
+      setAvatarUrl(`${data.publicUrl}?v=${Date.now()}`);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Falha no upload.");
+      setError(err instanceof Error ? err.message : "Falha no upload da foto.");
     } finally {
       setUploading(false);
     }
@@ -87,7 +142,8 @@ export function ProfileEditor({
     setSaved(false);
 
     if (name.trim().length < 2) return setError("Digite seu nome.");
-    if (city.trim().length < 2) return setError("Informe sua cidade — é o que conecta você aos parceiros.");
+    if (!hasLocation)
+      return setError("Toque em “Usar minha localização” para encontrar tenistas perto de você.");
 
     setSaving(true);
     try {
@@ -97,15 +153,16 @@ export function ProfileEditor({
           name: name.trim(),
           birthdate: birthdate || null,
           gender: gender || null,
-          city: city.trim(),
-          state: state.trim() || null,
-          country: country.trim() || null,
           bio: bio.trim() || null,
-          skill_level: skill,
+          skill_class: skillClass,
           play_format: format,
           dominant_hand: hand || null,
           availability: availability.length ? availability : null,
           avatar_url: avatarUrl,
+          latitude: lat,
+          longitude: lng,
+          city: cityLabel,
+          search_radius_km: radius,
           onboarded: true,
         })
         .eq("id", profile.id);
@@ -130,20 +187,18 @@ export function ProfileEditor({
     <form onSubmit={onSave} className="space-y-7">
       {/* Avatar */}
       <div className="flex items-center gap-4">
-        <div className="relative">
-          {avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={avatarUrl}
-              alt="Sua foto"
-              className="h-20 w-20 rounded-2xl object-cover ring-2 ring-court-200"
-            />
-          ) : (
-            <div className="grid h-20 w-20 place-items-center rounded-2xl bg-court-100 text-2xl font-bold text-court-700">
-              {initials(name || "🎾")}
-            </div>
-          )}
-        </div>
+        {avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={avatarUrl}
+            alt="Sua foto"
+            className="h-20 w-20 rounded-2xl object-cover ring-2 ring-court-200"
+          />
+        ) : (
+          <div className="grid h-20 w-20 place-items-center rounded-2xl bg-court-100 text-2xl font-bold text-court-700">
+            {initials(name || "🎾")}
+          </div>
+        )}
         <div>
           <button
             type="button"
@@ -153,11 +208,11 @@ export function ProfileEditor({
           >
             {uploading ? "Enviando..." : avatarUrl ? "Trocar foto" : "Adicionar foto"}
           </button>
-          <p className="mt-1 text-xs text-slate-400">JPG ou PNG, até 5MB.</p>
+          <p className="mt-1 text-xs text-slate-400">Qualquer foto da galeria, até 25MB.</p>
           <input
             ref={fileRef}
             type="file"
-            accept="image/*"
+            accept="image/*,.heic,.heif"
             className="hidden"
             onChange={onPickFile}
           />
@@ -192,52 +247,69 @@ export function ProfileEditor({
         </div>
       </div>
 
-      {/* Localização */}
-      <div>
-        <label className="label">📍 Cidade onde quer jogar</label>
-        <input
-          className="input"
-          placeholder="Ex.: São Paulo"
-          value={city}
-          onChange={(e) => setCity(e.target.value)}
-        />
-        <p className="mt-1 text-xs text-slate-400">
-          Viajando? Coloque a cidade do destino para achar gente por lá.
+      {/* Localização em tempo real */}
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <label className="label">📍 Sua localização</label>
+        <p className="mb-3 text-xs text-slate-500">
+          Nada de digitar endereço — usamos sua localização atual pra achar
+          tenistas por perto. Viajou? É só atualizar aqui no destino.
         </p>
-        <div className="mt-3 grid gap-4 sm:grid-cols-2">
-          <input
-            className="input"
-            placeholder="Estado (ex.: SP)"
-            value={state}
-            onChange={(e) => setState(e.target.value)}
-          />
-          <input
-            className="input"
-            placeholder="País"
-            value={country}
-            onChange={(e) => setCountry(e.target.value)}
-          />
+        <button
+          type="button"
+          onClick={getLocation}
+          className={cx("text-sm", hasLocation ? "btn-ghost" : "btn-primary")}
+          disabled={locating}
+        >
+          {locating
+            ? "Localizando..."
+            : hasLocation
+              ? "Atualizar localização"
+              : "Usar minha localização"}
+        </button>
+        {hasLocation && (
+          <p className="mt-3 flex items-center gap-2 text-sm font-medium text-court-700">
+            <span>✅ Localização definida</span>
+            {cityLabel && <span className="text-slate-500">· {cityLabel}</span>}
+          </p>
+        )}
+        {locError && <p className="mt-3 text-sm text-red-600">{locError}</p>}
+      </div>
+
+      {/* Raio de busca */}
+      <div>
+        <label className="label">Buscar tenistas num raio de</label>
+        <div className="flex flex-wrap gap-2">
+          {RADIUS_OPTIONS.map((r) => (
+            <button
+              type="button"
+              key={r}
+              onClick={() => setRadius(r)}
+              className={cx("chip", radius === r ? "chip-on" : "chip-off")}
+            >
+              {r} km
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Nível */}
+      {/* Classe */}
       <div>
-        <label className="label">🎾 Seu nível</label>
+        <label className="label">🎾 Sua classe</label>
         <div className="grid gap-2 sm:grid-cols-2">
-          {SKILLS.map((s) => (
+          {SKILL_CLASSES.map((c) => (
             <button
               type="button"
-              key={s}
-              onClick={() => setSkill(s)}
+              key={c}
+              onClick={() => setSkillClass(c)}
               className={cx(
                 "rounded-2xl border p-4 text-left transition",
-                skill === s
+                skillClass === c
                   ? "border-court-500 bg-court-50 ring-1 ring-court-300"
                   : "border-slate-200 bg-white hover:border-slate-300"
               )}
             >
-              <div className="font-semibold">{SKILL_LABELS[s]}</div>
-              <div className="mt-0.5 text-xs text-slate-500">{SKILL_DESCRIPTIONS[s]}</div>
+              <div className="font-semibold">{CLASS_LABELS[c]}</div>
+              <div className="mt-0.5 text-xs text-slate-500">{CLASS_DESCRIPTIONS[c]}</div>
             </button>
           ))}
         </div>
