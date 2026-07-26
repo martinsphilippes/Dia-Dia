@@ -211,6 +211,18 @@ language sql stable security definer set search_path to 'public' as $$
   order by coalesce(lm.created_at, m.created_at) desc;
 $$;
 
+-- Reset dos "pass": traz de volta quem o usuário passou (mantém likes/matches),
+-- permitindo procurar novos tenistas quantas vezes quiser.
+create or replace function public.reset_passes()
+returns integer language plpgsql security definer set search_path to 'public' as $$
+declare n integer;
+begin
+  delete from public.swipes
+    where swiper_id = auth.uid() and direction = 'pass';
+  get diagnostics n = row_count;
+  return n;
+end $$;
+
 -- ============================================================================
 -- Row Level Security
 -- ============================================================================

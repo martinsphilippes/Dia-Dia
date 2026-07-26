@@ -92,6 +92,15 @@ export function SwipeDeck({ me }: Props) {
     setLoadingMore(false);
   }, [loadingMore, fetchDeck]);
 
+  // Traz de volta quem você passou (não mexe nos likes/matches) e recarrega.
+  // Permite procurar novos tenistas quantas vezes quiser.
+  const resetAndReload = useCallback(async () => {
+    setPhase("loading");
+    setExhausted(false);
+    await supabase.rpc("reset_passes");
+    await fetchDeck();
+  }, [supabase, fetchDeck]);
+
   useEffect(() => {
     if (phase === "ready" && deck.length > 0 && deck.length <= 2) fetchMore();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -162,7 +171,9 @@ export function SwipeDeck({ me }: Props) {
   return (
     <div className="relative mx-auto w-full max-w-sm">
       <div className="relative h-[520px]">
-        {exhausted && deck.length === 0 && <EmptyState onRefresh={fetchMore} radius={me.search_radius_km} />}
+        {exhausted && deck.length === 0 && (
+          <EmptyState onReset={resetAndReload} radius={me.search_radius_km} />
+        )}
 
         {deck
           .slice(0, 3)
@@ -202,6 +213,16 @@ export function SwipeDeck({ me }: Props) {
           </button>
         </div>
       )}
+
+      {/* Procurar de novo a qualquer momento (traz de volta quem você passou) */}
+      <div className="mt-4 text-center">
+        <button
+          onClick={resetAndReload}
+          className="text-sm font-medium text-court-600 underline-offset-2 hover:underline"
+        >
+          🔄 Procurar de novo
+        </button>
+      </div>
 
       <AnimatePresence>
         {matched && (
@@ -342,19 +363,20 @@ function Tag({ children }: { children: React.ReactNode }) {
   );
 }
 
-function EmptyState({ onRefresh, radius }: { onRefresh: () => void; radius: number }) {
+function EmptyState({ onReset, radius }: { onReset: () => void; radius: number }) {
   return (
     <div className="absolute inset-0 grid place-items-center rounded-3xl border border-dashed border-slate-200 bg-white p-6 text-center">
       <div>
         <div className="text-5xl">🎾</div>
-        <h3 className="mt-3 text-lg font-bold">Ninguém novo por aqui</h3>
+        <h3 className="mt-3 text-lg font-bold">Você já viu todo mundo</h3>
         <p className="mt-1 text-sm text-slate-500">
-          Você já viu todo mundo num raio de {radius} km. Aumente o raio no seu
-          perfil ou volte mais tarde — novos tenistas entram toda hora.
+          Num raio de {radius} km, por enquanto é isso. Rever quem você passou
+          pra dar outra olhada, aumentar o raio no perfil, ou voltar mais tarde
+          — novos tenistas entram toda hora.
         </p>
         <div className="mt-5 flex flex-col items-center gap-2">
-          <button onClick={onRefresh} className="btn-ghost text-sm">
-            Procurar de novo
+          <button onClick={onReset} className="btn-primary text-sm">
+            🔄 Rever quem passei
           </button>
           <Link href="/profile" className="text-sm font-medium text-court-600">
             Aumentar o raio de busca
