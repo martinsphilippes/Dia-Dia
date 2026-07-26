@@ -1,9 +1,9 @@
 /** @type {import('next').NextConfig} */
 const supabaseHost = (() => {
   try {
-    return new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || "https://cdlwbimobwpzuyehuedk.supabase.co").hostname;
+    return new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || "https://srszapxkzmflqdavxvmt.supabase.co").hostname;
   } catch {
-    return "cdlwbimobwpzuyehuedk.supabase.co";
+    return "srszapxkzmflqdavxvmt.supabase.co";
   }
 })();
 
