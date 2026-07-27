@@ -277,6 +277,15 @@
     return [r.periodo, r.cotacao, r.bairro, r.telefone, r.dia];
   }
 
+  function previewToText(rows) {
+    var lines = [COLUMNS.join("\t")].concat(
+      rows.map(function (r) {
+        return rowValues(r).join("\t");
+      })
+    );
+    return lines.join("\n");
+  }
+
   function renderPreview(rows) {
     lastRows = rows;
     var body = document.getElementById("previewBody");
@@ -293,15 +302,15 @@
     });
     summary.textContent = "Pré-visualização (" + rows.length + " linha" + (rows.length === 1 ? "" : "s") + ")";
     document.getElementById("previewCard").style.display = rows.length ? "block" : "none";
-  }
 
-  function previewToText(rows) {
-    var lines = [COLUMNS.join("\t")].concat(
-      rows.map(function (r) {
-        return rowValues(r).join("\t");
-      })
-    );
-    return lines.join("\n");
+    // Populated (and kept in the layout, not display:none) as soon as the
+    // preview exists -- Safari can fail to select text in an element that
+    // was just switched from display:none to visible in the same tick, so
+    // by the time "Copiar texto" is clicked this textarea is already laid
+    // out and selection/execCommand works reliably.
+    var fallbackEl = document.getElementById("copyFallbackText");
+    fallbackEl.value = rows.length ? previewToText(rows) : "";
+    document.getElementById("copyFallbackWrap").style.display = rows.length ? "block" : "none";
   }
 
   function execCommandCopy(el, text) {
@@ -322,33 +331,15 @@
     return ok;
   }
 
-  function showFallbackText(text) {
-    var wrap = document.getElementById("copyFallbackWrap");
-    var el = document.getElementById("copyFallbackText");
-    el.value = text;
-    wrap.style.display = "block";
-    el.focus();
-    el.select();
-    try {
-      el.setSelectionRange(0, text.length);
-    } catch (e) {
-      // ignore
-    }
-  }
-
   function copyPreview() {
     if (!lastRows.length) return;
     var text = previewToText(lastRows);
     var el = document.getElementById("copyStatus");
 
-    // We can't reliably tell whether an automatic copy actually reached
-    // the OS clipboard on every browser/webview (some silently no-op), so
-    // regardless of the outcome we also reveal a pre-selected textarea
-    // the user can copy manually as a guaranteed fallback.
-    showFallbackText(text);
-
     // execCommand tends to work more reliably than the async Clipboard API
     // inside restricted embedded browsers (e.g. WhatsApp's in-app browser).
+    // The fallback textarea is already visible and laid out (populated in
+    // renderPreview), so focus/select here isn't racing a display change.
     var ok = execCommandCopy(document.getElementById("copyFallbackText"), text);
 
     function finish(copiedAutomatically) {
