@@ -21,6 +21,10 @@
   var PERIOD_KEYWORDS = /^(manh[aã]|tarde|noite|madrugada)$/i;
   var HEADER_LINE = /^\*+\s*(.+?)\s*\*+$/;
   var DATA_LINE = /^(\d+)\s*[-–—]\s*(.+)$/;
+  var LETTER = "A-Za-zÀ-ÖØ-öø-ÿ";
+  var NAME_LINE = new RegExp(
+    "^[^" + LETTER + "]*([" + LETTER + "][" + LETTER + "'.]*(?:\\s+[" + LETTER + "][" + LETTER + "'.]*)*)\\s*[-–—]\\s*(.+)$"
+  );
 
   function toTitleCase(str) {
     return str
@@ -60,6 +64,16 @@
 
       if (PERIOD_KEYWORDS.test(line)) {
         currentPeriod = toTitleCase(line);
+        return;
+      }
+
+      var nameMatch = line.match(NAME_LINE);
+      if (nameMatch) {
+        rows.push({
+          periodo: currentPeriod || "—",
+          cotacao: nameMatch[1].trim(),
+          bairro: nameMatch[2].trim(),
+        });
         return;
       }
 

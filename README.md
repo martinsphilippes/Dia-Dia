@@ -28,6 +28,22 @@ em qualquer servidor estático). Cole o texto da conversa e clique em
   período e valem para todas as linhas seguintes até o próximo cabeçalho.
 - Linhas no formato `NÚMERO- BAIRRO` viram uma linha da planilha.
 
+Também é aceito um formato alternativo sem números, com o nome do
+cliente no lugar da cotação:
+
+```
+Isabela - Ondina
+Elaine - Ondina
+Ney - Barra
+Maurício - Graça
+```
+
+- Linhas no formato `NOME - BAIRRO` viram uma linha da planilha, com o
+  nome do cliente na coluna Cotação.
+- Qualquer caractere antes do nome (`*`, `-`, `•`, etc.) é ignorado.
+- Se não houver cabeçalho de período (`*MANHÃ*`/`*NOITE*`) nesse formato,
+  a coluna Manhã/Tarde fica com `—`.
+
 ## Planilha gerada
 
 | Manhã/Tarde | Cotação | Bairro |
