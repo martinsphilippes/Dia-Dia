@@ -113,38 +113,44 @@
     return lines.join("\n");
   }
 
-  function copyPreview() {
-    if (!lastRows.length) return;
-    var text = previewToText(lastRows);
-    var el = document.getElementById("copyStatus");
+  function escapeHtml(value) {
+    return String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  }
 
-    function done(ok) {
-      el.textContent = ok ? "Copiado!" : "Não foi possível copiar.";
-      el.className = "status" + (ok ? " ok" : " error");
-      setTimeout(function () {
-        el.textContent = "";
-        el.className = "status";
-      }, 2000);
-    }
+  function previewToHtml(rows) {
+    var header = ["Manhã/Tarde", "Cotação", "Bairro"];
+    var thead = "<tr>" + header.map(function (h) { return "<th>" + escapeHtml(h) + "</th>"; }).join("") + "</tr>";
+    var tbody = rows
+      .map(function (r) {
+        return (
+          "<tr>" +
+          [r.periodo, r.cotacao, r.bairro].map(function (v) { return "<td>" + escapeHtml(v) + "</td>"; }).join("") +
+          "</tr>"
+        );
+      })
+      .join("");
+    return "<table>" + thead + tbody + "</table>";
+  }
 
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(
-        function () {
-          done(true);
-        },
-        function () {
-          done(false);
-        }
-      );
-      return;
-    }
-
+  function fallbackExecCommandCopy(text, done) {
     var temp = document.createElement("textarea");
     temp.value = text;
+    temp.setAttribute("readonly", "");
     temp.style.position = "fixed";
+    temp.style.top = "0";
+    temp.style.left = "0";
     temp.style.opacity = "0";
     document.body.appendChild(temp);
+    temp.focus();
     temp.select();
+    try {
+      temp.setSelectionRange(0, text.length);
+    } catch (e) {
+      // some browsers don't support setSelectionRange on textarea in this context
+    }
     var ok = false;
     try {
       ok = document.execCommand("copy");
@@ -153,6 +159,57 @@
     }
     document.body.removeChild(temp);
     done(ok);
+  }
+
+  function copyPreview() {
+    if (!lastRows.length) return;
+    var text = previewToText(lastRows);
+    var html = previewToHtml(lastRows);
+    var el = document.getElementById("copyStatus");
+
+    function done(ok) {
+      el.textContent = ok ? "Copiado!" : "Não foi possível copiar automaticamente. Selecione a tabela e copie manualmente.";
+      el.className = "status" + (ok ? " ok" : " error");
+      setTimeout(
+        function () {
+          el.textContent = "";
+          el.className = "status";
+        },
+        ok ? 2000 : 5000
+      );
+    }
+
+    function tryWriteText() {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(
+          function () {
+            done(true);
+          },
+          function () {
+            fallbackExecCommandCopy(text, done);
+          }
+        );
+      } else {
+        fallbackExecCommandCopy(text, done);
+      }
+    }
+
+    if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+      try {
+        var item = new ClipboardItem({
+          "text/plain": new Blob([text], { type: "text/plain" }),
+          "text/html": new Blob([html], { type: "text/html" }),
+        });
+        navigator.clipboard.write([item]).then(function () {
+          done(true);
+        }, tryWriteText);
+        return;
+      } catch (e) {
+        // ClipboardItem construction failed (unsupported types); fall through
+      }
+    }
+
+    tryWriteText();
   }
 
   function buildWorkbook(rows) {
