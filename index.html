@@ -84,6 +84,7 @@
   th { color: var(--muted); font-weight: 600; }
   .preview-wrap { max-height: 320px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
   details summary { cursor: pointer; font-weight: 600; margin-bottom: 8px; }
+  .preview-actions { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
 </style>
 </head>
 <body>
@@ -104,6 +105,10 @@
   <div class="card" id="previewCard" style="display:none;">
     <details open>
       <summary id="previewSummary">Pré-visualização</summary>
+      <div class="preview-actions">
+        <button id="copyBtn" class="secondary" type="button">Copiar texto</button>
+        <span id="copyStatus" class="status"></span>
+      </div>
       <div class="preview-wrap">
         <table id="previewTable">
           <thead>

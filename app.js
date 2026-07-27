@@ -83,7 +83,10 @@
     return { rows: rows, skipped: skipped };
   }
 
+  var lastRows = [];
+
   function renderPreview(rows) {
+    lastRows = rows;
     var body = document.getElementById("previewBody");
     var summary = document.getElementById("previewSummary");
     body.innerHTML = "";
@@ -98,6 +101,58 @@
     });
     summary.textContent = "Pré-visualização (" + rows.length + " linha" + (rows.length === 1 ? "" : "s") + ")";
     document.getElementById("previewCard").style.display = rows.length ? "block" : "none";
+  }
+
+  function previewToText(rows) {
+    var header = ["Manhã/Tarde", "Cotação", "Bairro"];
+    var lines = [header.join("\t")].concat(
+      rows.map(function (r) {
+        return [r.periodo, r.cotacao, r.bairro].join("\t");
+      })
+    );
+    return lines.join("\n");
+  }
+
+  function copyPreview() {
+    if (!lastRows.length) return;
+    var text = previewToText(lastRows);
+    var el = document.getElementById("copyStatus");
+
+    function done(ok) {
+      el.textContent = ok ? "Copiado!" : "Não foi possível copiar.";
+      el.className = "status" + (ok ? " ok" : " error");
+      setTimeout(function () {
+        el.textContent = "";
+        el.className = "status";
+      }, 2000);
+    }
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(
+        function () {
+          done(true);
+        },
+        function () {
+          done(false);
+        }
+      );
+      return;
+    }
+
+    var temp = document.createElement("textarea");
+    temp.value = text;
+    temp.style.position = "fixed";
+    temp.style.opacity = "0";
+    document.body.appendChild(temp);
+    temp.select();
+    var ok = false;
+    try {
+      ok = document.execCommand("copy");
+    } catch (e) {
+      ok = false;
+    }
+    document.body.removeChild(temp);
+    done(ok);
   }
 
   function buildWorkbook(rows) {
@@ -167,4 +222,5 @@
     document.getElementById("input").value = EXAMPLE;
     setStatus("", "");
   });
+  document.getElementById("copyBtn").addEventListener("click", copyPreview);
 })();
