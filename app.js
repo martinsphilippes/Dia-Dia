@@ -81,19 +81,43 @@
     return d;
   }
 
-  function matchDateLine(line, today) {
-    var normalized = normalizeAccents(line.trim().toLowerCase());
-    if (Object.prototype.hasOwnProperty.call(WEEKDAY_MAP, normalized)) {
-      return formatDateBR(mostRecentPastWeekday(WEEKDAY_MAP[normalized], today));
+  var WEEKDAY_KEYS = Object.keys(WEEKDAY_MAP).sort(function (a, b) {
+    return b.length - a.length;
+  });
+
+  function findDateInLine(line, today) {
+    var normalized = normalizeAccents(line.toLowerCase());
+    for (var i = 0; i < WEEKDAY_KEYS.length; i++) {
+      var key = WEEKDAY_KEYS[i];
+      var re = new RegExp("\\b" + key.replace(/\s+/g, "\\s+") + "\\b");
+      if (re.test(normalized)) {
+        return formatDateBR(mostRecentPastWeekday(WEEKDAY_MAP[key], today));
+      }
     }
-    if (normalized === "ontem") {
+    if (/\bontem\b/.test(normalized)) {
       var y = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
       return formatDateBR(y);
     }
-    if (normalized === "hoje") {
+    if (/\bhoje\b/.test(normalized)) {
       return formatDateBR(new Date(today.getFullYear(), today.getMonth(), today.getDate()));
     }
     return null;
+  }
+
+  function findPeriodInLine(line) {
+    var m = line.match(PERIOD_WORD);
+    return m ? toTitleCase(m[1]) : null;
+  }
+
+  // Detects marker lines that name a day and/or a period (e.g. "sábado",
+  // "NOITE", or a combined "Sábado noite"), updating whichever parts are
+  // present. Returns true if the line was consumed as a marker.
+  function applyDayAndPeriod(line, today, setDate, setPeriod) {
+    var date = findDateInLine(line, today);
+    var period = findPeriodInLine(line);
+    if (date) setDate(date);
+    if (period) setPeriod(period);
+    return Boolean(date || period);
   }
 
   function stripTrailingNoise(bairro) {
@@ -159,18 +183,19 @@
       var headerMatch = line.match(HEADER_LINE);
       if (headerMatch) {
         var inner = headerMatch[1];
-        var dateFromHeader = matchDateLine(inner, today);
-        if (dateFromHeader) {
-          currentDate = dateFromHeader;
-        } else {
+        var consumedHeader = applyDayAndPeriod(
+          inner,
+          today,
+          function (d) {
+            currentDate = d;
+          },
+          function (p) {
+            currentPeriod = p;
+          }
+        );
+        if (!consumedHeader) {
           currentPeriod = toTitleCase(inner);
         }
-        return;
-      }
-
-      var dateMatch = matchDateLine(line, today);
-      if (dateMatch) {
-        currentDate = dateMatch;
         return;
       }
 
@@ -192,8 +217,17 @@
         return;
       }
 
-      if (PERIOD_WORD.test(line)) {
-        currentPeriod = toTitleCase(line.match(PERIOD_WORD)[1]);
+      var consumedMarker = applyDayAndPeriod(
+        line,
+        today,
+        function (d) {
+          currentDate = d;
+        },
+        function (p) {
+          currentPeriod = p;
+        }
+      );
+      if (consumedMarker) {
         return;
       }
 
