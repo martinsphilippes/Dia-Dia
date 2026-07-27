@@ -304,19 +304,12 @@
     return lines.join("\n");
   }
 
-  function fallbackExecCommandCopy(text, done) {
-    var temp = document.createElement("textarea");
-    temp.value = text;
-    temp.setAttribute("readonly", "");
-    temp.style.position = "fixed";
-    temp.style.top = "0";
-    temp.style.left = "0";
-    temp.style.opacity = "0";
-    document.body.appendChild(temp);
-    temp.focus();
-    temp.select();
+  function execCommandCopy(el, text) {
+    el.value = text;
+    el.focus();
+    el.select();
     try {
-      temp.setSelectionRange(0, text.length);
+      el.setSelectionRange(0, text.length);
     } catch (e) {
       // some browsers don't support setSelectionRange on textarea in this context
     }
@@ -326,8 +319,21 @@
     } catch (e) {
       ok = false;
     }
-    document.body.removeChild(temp);
-    done(ok);
+    return ok;
+  }
+
+  function showFallbackText(text) {
+    var wrap = document.getElementById("copyFallbackWrap");
+    var el = document.getElementById("copyFallbackText");
+    el.value = text;
+    wrap.style.display = "block";
+    el.focus();
+    el.select();
+    try {
+      el.setSelectionRange(0, text.length);
+    } catch (e) {
+      // ignore
+    }
   }
 
   function copyPreview() {
@@ -335,29 +341,39 @@
     var text = previewToText(lastRows);
     var el = document.getElementById("copyStatus");
 
-    function done(ok) {
-      el.textContent = ok ? "Copiado!" : "Não foi possível copiar automaticamente. Selecione a tabela e copie manualmente.";
-      el.className = "status" + (ok ? " ok" : " error");
-      setTimeout(
-        function () {
-          el.textContent = "";
-          el.className = "status";
-        },
-        ok ? 2000 : 5000
-      );
+    // We can't reliably tell whether an automatic copy actually reached
+    // the OS clipboard on every browser/webview (some silently no-op), so
+    // regardless of the outcome we also reveal a pre-selected textarea
+    // the user can copy manually as a guaranteed fallback.
+    showFallbackText(text);
+
+    // execCommand tends to work more reliably than the async Clipboard API
+    // inside restricted embedded browsers (e.g. WhatsApp's in-app browser).
+    var ok = execCommandCopy(document.getElementById("copyFallbackText"), text);
+
+    function finish(copiedAutomatically) {
+      el.textContent = copiedAutomatically
+        ? "Copiado! Se não colar, use o texto selecionado abaixo."
+        : "Não copiou automaticamente — o texto abaixo já está selecionado, copie manualmente.";
+      el.className = "status" + (copiedAutomatically ? " ok" : " error");
+    }
+
+    if (ok) {
+      finish(true);
+      return;
     }
 
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(
         function () {
-          done(true);
+          finish(true);
         },
         function () {
-          fallbackExecCommandCopy(text, done);
+          finish(false);
         }
       );
     } else {
-      fallbackExecCommandCopy(text, done);
+      finish(false);
     }
   }
 
