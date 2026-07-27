@@ -304,27 +304,6 @@
     return lines.join("\n");
   }
 
-  function escapeHtml(value) {
-    return String(value)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
-  }
-
-  function previewToHtml(rows) {
-    var thead = "<tr>" + COLUMNS.map(function (h) { return "<th>" + escapeHtml(h) + "</th>"; }).join("") + "</tr>";
-    var tbody = rows
-      .map(function (r) {
-        return (
-          "<tr>" +
-          rowValues(r).map(function (v) { return "<td>" + escapeHtml(v) + "</td>"; }).join("") +
-          "</tr>"
-        );
-      })
-      .join("");
-    return "<table>" + thead + tbody + "</table>";
-  }
-
   function fallbackExecCommandCopy(text, done) {
     var temp = document.createElement("textarea");
     temp.value = text;
@@ -354,7 +333,6 @@
   function copyPreview() {
     if (!lastRows.length) return;
     var text = previewToText(lastRows);
-    var html = previewToHtml(lastRows);
     var el = document.getElementById("copyStatus");
 
     function done(ok) {
@@ -369,37 +347,18 @@
       );
     }
 
-    function tryWriteText() {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(
-          function () {
-            done(true);
-          },
-          function () {
-            fallbackExecCommandCopy(text, done);
-          }
-        );
-      } else {
-        fallbackExecCommandCopy(text, done);
-      }
-    }
-
-    if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
-      try {
-        var item = new ClipboardItem({
-          "text/plain": new Blob([text], { type: "text/plain" }),
-          "text/html": new Blob([html], { type: "text/html" }),
-        });
-        navigator.clipboard.write([item]).then(function () {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(
+        function () {
           done(true);
-        }, tryWriteText);
-        return;
-      } catch (e) {
-        // ClipboardItem construction failed (unsupported types); fall through
-      }
+        },
+        function () {
+          fallbackExecCommandCopy(text, done);
+        }
+      );
+    } else {
+      fallbackExecCommandCopy(text, done);
     }
-
-    tryWriteText();
   }
 
   function buildWorkbook(rows) {
