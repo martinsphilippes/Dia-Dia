@@ -18,13 +18,38 @@
     "0292- Pituba",
   ].join("\n");
 
-  var PERIOD_KEYWORDS = /^(manh[aã]|tarde|noite|madrugada)$/i;
+  var PERIOD_WORD = /(manh[aã]|tarde|noite|madrugada)/i;
   var HEADER_LINE = /^\*+\s*(.+?)\s*\*+$/;
-  var DATA_LINE = /^(\d+)\s*[-–—]\s*(.+)$/;
   var LETTER = "A-Za-zÀ-ÖØ-öø-ÿ";
+  // Tolerates a short OCR-noise token (misread icon/checkmark) before the digits, e.g. "D 2665- Candeal".
+  var DATA_LINE = /^(?:\S{1,3}\s+)?(\d{2,6})\s*[-–—]\s*(.+)$/;
   var NAME_LINE = new RegExp(
     "^[^" + LETTER + "]*([" + LETTER + "][" + LETTER + "'.]*(?:\\s+[" + LETTER + "][" + LETTER + "'.]*)*)\\s*[-–—]\\s*(.+)$"
   );
+  var SEM_NOTA_LINE = /^(?:\S{1,3}\s+)?(?:pedido\s+)?sem\s+notar?\s*[:\-]\s*(.+)$/i;
+  var PHONE_PATTERN = /\+?\d[\d\s-]{8,14}\d/;
+  var NAME_ONLY_LINE = new RegExp("^[A-ZÀ-Ö][a-zà-öø-ÿ'.]*(?:\\s+[A-ZÀ-Ö][a-zà-öø-ÿ'.]*){1,4}$");
+  var TRAILING_NOISE = /\s*[\[\]()]*\s*\d{1,2}[:.]\d{2}\s*[»>]?\s*[A-Za-z]?\s*$/;
+
+  var WEEKDAY_MAP = {
+    domingo: 0,
+    segunda: 1,
+    "segunda-feira": 1,
+    "segunda feira": 1,
+    terca: 2,
+    "terca-feira": 2,
+    "terca feira": 2,
+    quarta: 3,
+    "quarta-feira": 3,
+    "quarta feira": 3,
+    quinta: 4,
+    "quinta-feira": 4,
+    "quinta feira": 4,
+    sexta: 5,
+    "sexta-feira": 5,
+    "sexta feira": 5,
+    sabado: 6,
+  };
 
   function toTitleCase(str) {
     return str
@@ -36,11 +61,96 @@
       .join(" ");
   }
 
-  function parseConversation(text) {
+  function normalizeAccents(str) {
+    return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  }
+
+  function pad2(n) {
+    return String(n).padStart(2, "0");
+  }
+
+  function formatDateBR(d) {
+    return pad2(d.getDate()) + "/" + pad2(d.getMonth() + 1) + "/" + d.getFullYear();
+  }
+
+  function mostRecentPastWeekday(targetDow, today) {
+    var d = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    var diff = (d.getDay() - targetDow + 7) % 7;
+    if (diff === 0) diff = 7;
+    d.setDate(d.getDate() - diff);
+    return d;
+  }
+
+  function matchDateLine(line, today) {
+    var normalized = normalizeAccents(line.trim().toLowerCase());
+    if (Object.prototype.hasOwnProperty.call(WEEKDAY_MAP, normalized)) {
+      return formatDateBR(mostRecentPastWeekday(WEEKDAY_MAP[normalized], today));
+    }
+    if (normalized === "ontem") {
+      var y = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
+      return formatDateBR(y);
+    }
+    if (normalized === "hoje") {
+      return formatDateBR(new Date(today.getFullYear(), today.getMonth(), today.getDate()));
+    }
+    return null;
+  }
+
+  function stripTrailingNoise(bairro) {
+    return bairro.replace(TRAILING_NOISE, "").trim();
+  }
+
+  function normalizePhone(raw) {
+    var digits = raw.replace(/\D/g, "");
+    if (/^55\d{10,11}$/.test(digits)) {
+      var rest = digits.slice(2);
+      var area = rest.slice(0, 2);
+      var number = rest.slice(2);
+      if (number.length === 9) {
+        return "+55 " + area + " " + number.slice(0, 5) + "-" + number.slice(5);
+      }
+      if (number.length === 8) {
+        return "+55 " + area + " " + number.slice(0, 4) + "-" + number.slice(4);
+      }
+    }
+    if (digits.length >= 9) {
+      return "+" + digits;
+    }
+    return "";
+  }
+
+  function matchSenderLine(line) {
+    var stripped = line.replace(/^[^A-Za-zÀ-ÖØ-öø-ÿ+0-9]+/, "").trim();
+    if (!stripped) return null;
+    var phoneMatch = stripped.match(PHONE_PATTERN);
+    if (phoneMatch) {
+      var phone = normalizePhone(phoneMatch[0]);
+      if (phone) return { phone: phone };
+    }
+    if (NAME_ONLY_LINE.test(stripped)) {
+      return { phone: "" };
+    }
+    return null;
+  }
+
+  function parseConversation(text, today) {
+    today = today || new Date();
     var lines = text.split(/\r?\n/);
     var currentPeriod = "";
+    var currentDate = "";
+    var currentPhone = "";
     var rows = [];
     var skipped = [];
+
+    function pushRow(cotacao, bairro) {
+      rows.push({
+        periodo: currentPeriod || "—",
+        cotacao: cotacao,
+        bairro: stripTrailingNoise(bairro),
+        telefone: currentPhone,
+        dia: currentDate,
+      });
+    }
 
     lines.forEach(function (raw) {
       var line = raw.trim();
@@ -48,32 +158,48 @@
 
       var headerMatch = line.match(HEADER_LINE);
       if (headerMatch) {
-        currentPeriod = toTitleCase(headerMatch[1]);
+        var inner = headerMatch[1];
+        var dateFromHeader = matchDateLine(inner, today);
+        if (dateFromHeader) {
+          currentDate = dateFromHeader;
+        } else {
+          currentPeriod = toTitleCase(inner);
+        }
+        return;
+      }
+
+      var dateMatch = matchDateLine(line, today);
+      if (dateMatch) {
+        currentDate = dateMatch;
+        return;
+      }
+
+      var semNotaMatch = line.match(SEM_NOTA_LINE);
+      if (semNotaMatch) {
+        pushRow("Sem nota", semNotaMatch[1]);
         return;
       }
 
       var dataMatch = line.match(DATA_LINE);
       if (dataMatch) {
-        rows.push({
-          periodo: currentPeriod || "—",
-          cotacao: dataMatch[1],
-          bairro: dataMatch[2].trim(),
-        });
-        return;
-      }
-
-      if (PERIOD_KEYWORDS.test(line)) {
-        currentPeriod = toTitleCase(line);
+        pushRow(dataMatch[1], dataMatch[2]);
         return;
       }
 
       var nameMatch = line.match(NAME_LINE);
       if (nameMatch) {
-        rows.push({
-          periodo: currentPeriod || "—",
-          cotacao: nameMatch[1].trim(),
-          bairro: nameMatch[2].trim(),
-        });
+        pushRow(nameMatch[1].trim(), nameMatch[2]);
+        return;
+      }
+
+      if (PERIOD_WORD.test(line)) {
+        currentPeriod = toTitleCase(line.match(PERIOD_WORD)[1]);
+        return;
+      }
+
+      var senderMatch = matchSenderLine(line);
+      if (senderMatch) {
+        currentPhone = senderMatch.phone;
         return;
       }
 
@@ -85,6 +211,12 @@
 
   var lastRows = [];
 
+  var COLUMNS = ["Manhã/Tarde", "Cotação", "Bairro", "Telefone", "Dia"];
+
+  function rowValues(r) {
+    return [r.periodo, r.cotacao, r.bairro, r.telefone, r.dia];
+  }
+
   function renderPreview(rows) {
     lastRows = rows;
     var body = document.getElementById("previewBody");
@@ -92,7 +224,7 @@
     body.innerHTML = "";
     rows.forEach(function (r) {
       var tr = document.createElement("tr");
-      [r.periodo, r.cotacao, r.bairro].forEach(function (val) {
+      rowValues(r).forEach(function (val) {
         var td = document.createElement("td");
         td.textContent = val;
         tr.appendChild(td);
@@ -104,10 +236,9 @@
   }
 
   function previewToText(rows) {
-    var header = ["Manhã/Tarde", "Cotação", "Bairro"];
-    var lines = [header.join("\t")].concat(
+    var lines = [COLUMNS.join("\t")].concat(
       rows.map(function (r) {
-        return [r.periodo, r.cotacao, r.bairro].join("\t");
+        return rowValues(r).join("\t");
       })
     );
     return lines.join("\n");
@@ -121,13 +252,12 @@
   }
 
   function previewToHtml(rows) {
-    var header = ["Manhã/Tarde", "Cotação", "Bairro"];
-    var thead = "<tr>" + header.map(function (h) { return "<th>" + escapeHtml(h) + "</th>"; }).join("") + "</tr>";
+    var thead = "<tr>" + COLUMNS.map(function (h) { return "<th>" + escapeHtml(h) + "</th>"; }).join("") + "</tr>";
     var tbody = rows
       .map(function (r) {
         return (
           "<tr>" +
-          [r.periodo, r.cotacao, r.bairro].map(function (v) { return "<td>" + escapeHtml(v) + "</td>"; }).join("") +
+          rowValues(r).map(function (v) { return "<td>" + escapeHtml(v) + "</td>"; }).join("") +
           "</tr>"
         );
       })
@@ -213,14 +343,9 @@
   }
 
   function buildWorkbook(rows) {
-    var header = ["Manhã/Tarde", "Cotação", "Bairro"];
-    var data = [header].concat(
-      rows.map(function (r) {
-        return [r.periodo, r.cotacao, r.bairro];
-      })
-    );
+    var data = [COLUMNS].concat(rows.map(rowValues));
     var ws = XLSX.utils.aoa_to_sheet(data);
-    ws["!cols"] = [{ wch: 14 }, { wch: 12 }, { wch: 26 }];
+    ws["!cols"] = [{ wch: 14 }, { wch: 12 }, { wch: 26 }, { wch: 18 }, { wch: 12 }];
     var wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Cotações");
     return wb;

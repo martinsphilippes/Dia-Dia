@@ -50,15 +50,35 @@ Maurício - Graça
 - Se não houver cabeçalho de período (`*MANHÃ*`/`*NOITE*`) nesse formato,
   a coluna Manhã/Tarde fica com `—`.
 
+Também são reconhecidas linhas soltas de:
+
+- **Telefone do entregador** — uma linha com um número de telefone (ex.:
+  `+55 71 99363-4285`, mesmo colado/sem espaços) marca o contato atual; essa
+  informação é aplicada a todas as linhas seguintes até aparecer um telefone
+  diferente. Linhas com só um nome de contato (sem telefone visível) zeram
+  a coluna Telefone até o próximo telefone aparecer.
+- **Dia da semana** — uma linha sozinha como `quarta-feira`, `sábado`,
+  `Ontem` ou `Hoje` marca a data das linhas seguintes. Como as fotos são
+  sempre da semana anterior, cada dia da semana é resolvido para a
+  ocorrência mais recente que já passou (nunca hoje) — ex.: se hoje é
+  segunda-feira, "quarta-feira" vira a quarta-feira da semana passada.
+- **Pedido sem nota** — linhas como `Pedido sem nota- Bairro` ou
+  `Sem nota: Bairro` (sem número de cotação) viram uma linha com
+  `Cotação = "Sem nota"`.
+
+O parser também tolera "ruído" comum de OCR: um caractere/ícone solto antes
+do número (`D 2665- Candeal`, `[D) 1643- Pituba`) e horários colados no
+final do bairro (`Candeal 16:51` vira só `Candeal`).
+
 ## Planilha gerada
 
-| Manhã/Tarde | Cotação | Bairro |
-|---|---|---|
-| Manhã | 7143 | Caminho das Árvores |
-| Manhã | 2294 | Pituaçu |
-| Manhã | 0574 | Pituba |
-| Noite | 1436 | Pituba |
-| Noite | 7862 | Pituba |
+| Manhã/Tarde | Cotação | Bairro | Telefone | Dia |
+|---|---|---|---|---|
+| Manhã | 7143 | Caminho das Árvores | | |
+| Manhã | 2294 | Pituaçu | | |
+| Manhã | 0574 | Pituba | | |
+| Noite | 1436 | Pituba | | |
+| Noite | 7862 | Pituba | | |
 
 Os números da cotação são mantidos como texto para preservar zeros à
 esquerda (ex.: `0574`).
