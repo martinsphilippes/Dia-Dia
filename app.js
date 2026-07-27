@@ -31,25 +31,18 @@
   var NAME_ONLY_LINE = new RegExp("^[A-ZÀ-Ö][a-zà-öø-ÿ'.]*(?:\\s+[A-ZÀ-Ö][a-zà-öø-ÿ'.]*){1,4}$");
   var TRAILING_NOISE = /\s*[\[\]()]*\s*\d{1,2}[:.]\d{2}\s*[»>]?\s*[A-Za-z]?\s*$/;
 
-  var WEEKDAY_MAP = {
-    domingo: 0,
-    segunda: 1,
-    "segunda-feira": 1,
-    "segunda feira": 1,
-    terca: 2,
-    "terca-feira": 2,
-    "terca feira": 2,
-    quarta: 3,
-    "quarta-feira": 3,
-    "quarta feira": 3,
-    quinta: 4,
-    "quinta-feira": 4,
-    "quinta feira": 4,
-    sexta: 5,
-    "sexta-feira": 5,
-    "sexta feira": 5,
-    sabado: 6,
-  };
+  // "feira" days: the stem alone ("quinta"), or the stem plus "feira" with
+  // any amount of spaces and/or a hyphen between them ("quinta-feira",
+  // "quinta feira", "quinta - feira", "quintafeira") all resolve the same.
+  var WEEKDAY_STEMS = [
+    { stem: "domingo", dow: 0, feira: false },
+    { stem: "segunda", dow: 1, feira: true },
+    { stem: "terca", dow: 2, feira: true },
+    { stem: "quarta", dow: 3, feira: true },
+    { stem: "quinta", dow: 4, feira: true },
+    { stem: "sexta", dow: 5, feira: true },
+    { stem: "sabado", dow: 6, feira: false },
+  ];
 
   function toTitleCase(str) {
     return str
@@ -81,18 +74,25 @@
     return d;
   }
 
-  var WEEKDAY_KEYS = Object.keys(WEEKDAY_MAP).sort(function (a, b) {
-    return b.length - a.length;
-  });
+  function weekdayRegex(stem, feira) {
+    var pattern = feira ? "\\b" + stem + "\\b(?:\\s*-?\\s*feira\\b)?" : "\\b" + stem + "\\b";
+    return new RegExp(pattern);
+  }
+
+  function findWeekdayMatch(normalized) {
+    for (var i = 0; i < WEEKDAY_STEMS.length; i++) {
+      var w = WEEKDAY_STEMS[i];
+      var m = normalized.match(weekdayRegex(w.stem, w.feira));
+      if (m) return { dow: w.dow, matchText: m[0] };
+    }
+    return null;
+  }
 
   function findDateInLine(line, today) {
     var normalized = normalizeAccents(line.toLowerCase());
-    for (var i = 0; i < WEEKDAY_KEYS.length; i++) {
-      var key = WEEKDAY_KEYS[i];
-      var re = new RegExp("\\b" + key.replace(/\s+/g, "\\s+") + "\\b");
-      if (re.test(normalized)) {
-        return formatDateBR(mostRecentPastWeekday(WEEKDAY_MAP[key], today));
-      }
+    var wd = findWeekdayMatch(normalized);
+    if (wd) {
+      return formatDateBR(mostRecentPastWeekday(wd.dow, today));
     }
     if (/\bontem\b/.test(normalized)) {
       var y = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
@@ -120,26 +120,28 @@
     return Boolean(date || period);
   }
 
-  // True only when the whole line is made up of day-of-week/period words
-  // (and separators like "-"/spaces) and nothing else -- e.g. "Segunda
-  // feira", "Segunda-feira", "sábado", "NOITE", "Sábado noite". This lets
-  // us treat those safely as markers *before* the Nome/Bairro parser runs,
-  // without risking swallowing a real "Nome - Bairro" line that merely
-  // contains a period word inside the bairro text.
+  // True when the line is made up of day-of-week/period words -- e.g.
+  // "Segunda feira", "Segunda-feira", "sábado", "NOITE", "Sábado noite" --
+  // and little else. Tolerates a bit of leftover OCR noise (a stray
+  // misread icon/checkmark) the same way data lines do, so "D Quinta
+  // feira" or "Quinta feira 16:51" still count. This lets us treat those
+  // safely as markers *before* the Nome/Bairro parser runs, without
+  // risking swallowing a real "Nome - Bairro" line that merely contains a
+  // period word inside the bairro text (those never match a weekday/
+  // period word at all, so they're rejected right away below).
   function isPureDayPeriodLine(line) {
-    var remaining = normalizeAccents(line.toLowerCase());
-    for (var i = 0; i < WEEKDAY_KEYS.length; i++) {
-      var key = WEEKDAY_KEYS[i];
-      var re = new RegExp("\\b" + key.replace(/\s+/g, "\\s+") + "\\b");
-      if (re.test(remaining)) {
-        remaining = remaining.replace(re, " ");
-        break;
-      }
-    }
+    var normalized = normalizeAccents(line.toLowerCase()).replace(TRAILING_NOISE, "").trim();
+    var wd = findWeekdayMatch(normalized);
+    var hasPeriod = PERIOD_WORD.test(normalized);
+    var hasRelative = /\bontem\b|\bhoje\b/.test(normalized);
+    if (!wd && !hasPeriod && !hasRelative) return false;
+
+    var remaining = normalized;
+    if (wd) remaining = remaining.replace(wd.matchText, " ");
     remaining = remaining.replace(/\bontem\b/, " ").replace(/\bhoje\b/, " ");
     remaining = remaining.replace(PERIOD_WORD, " ");
     remaining = remaining.replace(/[-–—\s]+/g, "");
-    return remaining.length === 0;
+    return remaining.length <= 3;
   }
 
   function stripTrailingNoise(bairro) {
