@@ -85,20 +85,75 @@
   .preview-wrap { max-height: 320px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
   details summary { cursor: pointer; font-weight: 600; margin-bottom: 8px; }
   .preview-actions { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
+  .tab {
+    background: transparent;
+    color: var(--muted);
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    padding: 10px 4px;
+    margin-right: 20px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .tab:hover { background: transparent; color: var(--text); }
+  .tab.active { color: var(--text); border-bottom-color: var(--accent); }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  input[type="file"] {
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px dashed var(--border);
+    color: var(--text);
+    background: transparent;
+    font-size: 0.9rem;
+  }
+  .file-list { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+  .file-row { display: flex; align-items: center; gap: 10px; font-size: 0.88rem; }
+  .file-row .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file-row .state { color: var(--muted); white-space: nowrap; }
+  .file-row .state.ok { color: var(--accent-dark); }
+  .file-row .state.error { color: #e0473e; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>Conversa WhatsApp → Planilha Excel</h1>
-  <p class="sub">Cole abaixo o texto da conversa (com blocos como <code>*MANHÃ*</code> / <code>*NOITE*</code> e linhas <code>NÚMERO- BAIRRO</code>) e gere a planilha automaticamente.</p>
+  <p class="sub">Cole o texto da conversa ou envie fotos/prints/arquivos e gere a planilha automaticamente.</p>
 
-  <div class="card">
-    <label for="input">Texto da conversa</label>
-    <textarea id="input" placeholder="*MANHÃ*&#10;&#10;7143- Caminho das Árvores&#10;2294- Pituaçu&#10;...&#10;&#10;*NOITE*&#10;&#10;1436- Pituba"></textarea>
-    <div class="actions">
-      <button id="convertBtn">Converter e gerar Excel</button>
-      <button id="exampleBtn" class="secondary">Carregar exemplo</button>
-      <span id="status" class="status"></span>
+  <div class="tabs">
+    <button type="button" class="tab active" id="tabTextBtn" data-tab="text">Colar texto</button>
+    <button type="button" class="tab" id="tabImageBtn" data-tab="image">Enviar imagens/arquivos</button>
+  </div>
+
+  <div class="panel active" id="panelText">
+    <div class="card">
+      <label for="input">Texto da conversa</label>
+      <textarea id="input" placeholder="*MANHÃ*&#10;&#10;7143- Caminho das Árvores&#10;2294- Pituaçu&#10;...&#10;&#10;*NOITE*&#10;&#10;1436- Pituba"></textarea>
+      <div class="actions">
+        <button id="convertBtn">Converter e gerar Excel</button>
+        <button id="exampleBtn" class="secondary">Carregar exemplo</button>
+        <span id="status" class="status"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="panelImage">
+    <div class="card">
+      <label for="fileInput">Fotos, prints ou arquivo de texto exportado</label>
+      <input type="file" id="fileInput" accept="image/*,.txt" multiple />
+      <div class="file-list" id="fileList"></div>
+      <div class="actions">
+        <button id="extractBtn">Extrair texto das imagens</button>
+        <span id="extractStatus" class="status"></span>
+      </div>
+      <p class="sub" style="margin-top:14px; margin-bottom:0; font-size:0.85rem;">
+        As imagens são processadas no seu navegador (reconhecimento de texto local) — nada é enviado para nenhum servidor.
+        Depois de extrair, você pode conferir e corrigir o texto na aba "Colar texto" antes de gerar a planilha.
+      </p>
     </div>
   </div>
 
@@ -122,6 +177,7 @@
 </div>
 
 <script src="vendor/xlsx.full.min.js"></script>
+<script src="vendor/tesseract/tesseract.min.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

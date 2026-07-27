@@ -6,8 +6,14 @@ conversa de WhatsApp em uma planilha Excel.
 ## Como usar
 
 Abra `index.html` no navegador (duplo clique no arquivo ou hospede a pasta
-em qualquer servidor estático). Cole o texto da conversa e clique em
-"Converter e gerar Excel" — o arquivo `.xlsx` é baixado automaticamente.
+em qualquer servidor estático). Há duas abas:
+
+- **Colar texto** — cole o texto da conversa e clique em "Converter e gerar
+  Excel" — o arquivo `.xlsx` é baixado automaticamente.
+- **Enviar imagens/arquivos** — envie fotos, prints de tela ou um arquivo
+  `.txt` exportado do WhatsApp. O texto é extraído por reconhecimento óptico
+  (OCR, rodando localmente no navegador — nada é enviado para servidor
+  nenhum) e colocado na aba "Colar texto" para revisão antes de converter.
 
 ## Formato de entrada esperado
 
@@ -60,5 +66,7 @@ esquerda (ex.: `0574`).
 ## Arquivos
 
 - `index.html` — interface
-- `app.js` — parsing do texto e geração do Excel (usa a biblioteca SheetJS)
+- `app.js` — parsing do texto, OCR de imagens e geração do Excel
 - `vendor/xlsx.full.min.js` — biblioteca SheetJS vendorizada (funciona offline)
+- `vendor/tesseract/` — Tesseract.js e dados de idioma (português) vendorizados
+  para OCR funcionar offline, sem depender de nenhum CDN

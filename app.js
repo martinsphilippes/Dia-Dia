@@ -280,4 +280,156 @@
     setStatus("", "");
   });
   document.getElementById("copyBtn").addEventListener("click", copyPreview);
+
+  // ---- Tabs ----
+  function activateTab(name) {
+    document.querySelectorAll(".tab").forEach(function (btn) {
+      btn.classList.toggle("active", btn.dataset.tab === name);
+    });
+    document.getElementById("panelText").classList.toggle("active", name === "text");
+    document.getElementById("panelImage").classList.toggle("active", name === "image");
+  }
+
+  document.getElementById("tabTextBtn").addEventListener("click", function () {
+    activateTab("text");
+  });
+  document.getElementById("tabImageBtn").addEventListener("click", function () {
+    activateTab("image");
+  });
+
+  // ---- Image / file extraction ----
+  var TESSERACT_BASE = "vendor/tesseract";
+  var selectedFiles = [];
+
+  function readTextFile(file) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () {
+        resolve(String(reader.result));
+      };
+      reader.onerror = function () {
+        reject(reader.error);
+      };
+      reader.readAsText(file);
+    });
+  }
+
+  function isImageFile(file) {
+    return file.type.indexOf("image/") === 0;
+  }
+
+  function renderFileList() {
+    var list = document.getElementById("fileList");
+    list.innerHTML = "";
+    selectedFiles.forEach(function (entry) {
+      var row = document.createElement("div");
+      row.className = "file-row";
+      var name = document.createElement("span");
+      name.className = "name";
+      name.textContent = entry.file.name;
+      var state = document.createElement("span");
+      state.className = "state";
+      state.textContent = entry.stateText || "Aguardando";
+      entry.stateEl = state;
+      row.appendChild(name);
+      row.appendChild(state);
+      list.appendChild(row);
+    });
+  }
+
+  document.getElementById("fileInput").addEventListener("change", function (e) {
+    selectedFiles = Array.prototype.slice.call(e.target.files).map(function (file) {
+      return { file: file, stateText: "Aguardando" };
+    });
+    renderFileList();
+    document.getElementById("extractStatus").textContent = "";
+  });
+
+  function setExtractStatus(message, type) {
+    var el = document.getElementById("extractStatus");
+    el.textContent = message;
+    el.className = "status" + (type ? " " + type : "");
+  }
+
+  function updateFileState(entry, text, type) {
+    entry.stateText = text;
+    if (entry.stateEl) {
+      entry.stateEl.textContent = text;
+      entry.stateEl.className = "state" + (type ? " " + type : "");
+    }
+  }
+
+  async function extractAll() {
+    if (!selectedFiles.length) {
+      setExtractStatus("Selecione ao menos uma imagem ou arquivo.", "error");
+      return;
+    }
+
+    var extractBtn = document.getElementById("extractBtn");
+    extractBtn.disabled = true;
+    setExtractStatus("Processando...", "");
+
+    var worker = null;
+    var hasImages = selectedFiles.some(function (entry) {
+      return isImageFile(entry.file);
+    });
+
+    try {
+      if (hasImages) {
+        setExtractStatus("Carregando reconhecimento de texto (primeira vez pode demorar um pouco)...", "");
+        worker = await Tesseract.createWorker("por", 1, {
+          workerPath: TESSERACT_BASE + "/worker.min.js",
+          corePath: TESSERACT_BASE,
+          langPath: TESSERACT_BASE,
+          gzip: true,
+        });
+      }
+
+      var texts = [];
+      for (var i = 0; i < selectedFiles.length; i++) {
+        var entry = selectedFiles[i];
+        updateFileState(entry, "Processando...", "");
+        setExtractStatus("Processando " + (i + 1) + " de " + selectedFiles.length + "...", "");
+        try {
+          if (isImageFile(entry.file)) {
+            var result = await worker.recognize(entry.file);
+            var text = result.data.text || "";
+            texts.push(text);
+            var lineCount = text.split(/\r?\n/).filter(function (l) {
+              return l.trim();
+            }).length;
+            updateFileState(entry, "OK (" + lineCount + " linha" + (lineCount === 1 ? "" : "s") + ")", "ok");
+          } else {
+            var fileText = await readTextFile(entry.file);
+            texts.push(fileText);
+            updateFileState(entry, "OK", "ok");
+          }
+        } catch (fileErr) {
+          updateFileState(entry, "Erro ao processar", "error");
+        }
+      }
+
+      if (worker) {
+        await worker.terminate();
+      }
+
+      var combined = texts.join("\n\n").trim();
+      if (!combined) {
+        setExtractStatus("Não foi possível extrair texto de nenhum arquivo.", "error");
+        return;
+      }
+
+      var input = document.getElementById("input");
+      input.value = combined;
+      activateTab("text");
+      setStatus("Texto extraído. Revise abaixo e clique em \"Converter e gerar Excel\".", "ok");
+      setExtractStatus("", "");
+    } catch (err) {
+      setExtractStatus("Erro ao processar: " + (err && err.message ? err.message : err), "error");
+    } finally {
+      extractBtn.disabled = false;
+    }
+  }
+
+  document.getElementById("extractBtn").addEventListener("click", extractAll);
 })();
