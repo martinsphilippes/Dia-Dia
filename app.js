@@ -120,6 +120,28 @@
     return Boolean(date || period);
   }
 
+  // True only when the whole line is made up of day-of-week/period words
+  // (and separators like "-"/spaces) and nothing else -- e.g. "Segunda
+  // feira", "Segunda-feira", "sábado", "NOITE", "Sábado noite". This lets
+  // us treat those safely as markers *before* the Nome/Bairro parser runs,
+  // without risking swallowing a real "Nome - Bairro" line that merely
+  // contains a period word inside the bairro text.
+  function isPureDayPeriodLine(line) {
+    var remaining = normalizeAccents(line.toLowerCase());
+    for (var i = 0; i < WEEKDAY_KEYS.length; i++) {
+      var key = WEEKDAY_KEYS[i];
+      var re = new RegExp("\\b" + key.replace(/\s+/g, "\\s+") + "\\b");
+      if (re.test(remaining)) {
+        remaining = remaining.replace(re, " ");
+        break;
+      }
+    }
+    remaining = remaining.replace(/\bontem\b/, " ").replace(/\bhoje\b/, " ");
+    remaining = remaining.replace(PERIOD_WORD, " ");
+    remaining = remaining.replace(/[-–—\s]+/g, "");
+    return remaining.length === 0;
+  }
+
   function stripTrailingNoise(bairro) {
     return bairro.replace(TRAILING_NOISE, "").trim();
   }
@@ -211,23 +233,25 @@
         return;
       }
 
-      var nameMatch = line.match(NAME_LINE);
-      if (nameMatch) {
-        pushRow(nameMatch[1].trim(), nameMatch[2]);
+      // Checked before Nome/Bairro so a hyphenated weekday like
+      // "Segunda-feira" isn't split into a fake "Segunda" / "feira" row.
+      if (isPureDayPeriodLine(line)) {
+        applyDayAndPeriod(
+          line,
+          today,
+          function (d) {
+            currentDate = d;
+          },
+          function (p) {
+            currentPeriod = p;
+          }
+        );
         return;
       }
 
-      var consumedMarker = applyDayAndPeriod(
-        line,
-        today,
-        function (d) {
-          currentDate = d;
-        },
-        function (p) {
-          currentPeriod = p;
-        }
-      );
-      if (consumedMarker) {
+      var nameMatch = line.match(NAME_LINE);
+      if (nameMatch) {
+        pushRow(nameMatch[1].trim(), nameMatch[2]);
         return;
       }
 
