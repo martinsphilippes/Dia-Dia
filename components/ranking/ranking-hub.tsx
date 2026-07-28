@@ -103,6 +103,22 @@ export function RankingHub({ isOwner }: { isOwner: boolean }) {
       </header>
 
       <div className="mx-auto -mt-5 max-w-2xl space-y-6 px-5 pb-24">
+        {/* Gestão (só dono) */}
+        {isOwner && (
+          <Link
+            href="/admin"
+            className="flex items-center justify-between rounded-3xl bg-white p-5 shadow-card transition hover:-translate-y-0.5"
+          >
+            <div>
+              <div className="text-lg font-bold">🛡️ Gestão</div>
+              <div className="text-xs text-slate-500">
+                Cadastros, matches e organizadores
+              </div>
+            </div>
+            <span className="text-sm font-semibold text-court-700">Abrir →</span>
+          </Link>
+        )}
+
         {/* Ligas */}
         <section className="rounded-3xl bg-white p-5 shadow-card">
           <h2 className="text-lg font-bold">Minhas ligas</h2>

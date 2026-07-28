@@ -1,13 +1,13 @@
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 import {
   CLASS_LABELS,
   FORMAT_LABELS,
   type AdminMatchRow,
   type AdminProfileRow,
 } from "@/lib/types";
-
-export const dynamic = "force-dynamic";
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleString("pt-BR", {
@@ -19,49 +19,59 @@ function fmtDate(iso: string) {
   });
 }
 
-export default async function AdminPage() {
+export function AdminDashboard() {
   const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const [profiles, setProfiles] = useState<AdminProfileRow[]>([]);
+  const [matches, setMatches] = useState<AdminMatchRow[]>([]);
+  const [busy, setBusy] = useState<string | null>(null);
 
-  const { data: me } = await supabase
-    .from("profiles")
-    .select("is_admin")
-    .eq("id", user.id)
-    .single();
-  if (!me?.is_admin) redirect("/discover");
+  const load = useCallback(async () => {
+    const [{ data: p }, { data: m }] = await Promise.all([
+      supabase.rpc("admin_all_profiles"),
+      supabase.rpc("admin_all_matches"),
+    ]);
+    setProfiles((p as unknown as AdminProfileRow[]) ?? []);
+    setMatches((m as unknown as AdminMatchRow[]) ?? []);
+  }, [supabase]);
 
-  const [{ data: profilesData }, { data: matchesData }] = await Promise.all([
-    supabase.rpc("admin_all_profiles"),
-    supabase.rpc("admin_all_matches"),
-  ]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
-  const profiles = (profilesData as unknown as AdminProfileRow[] | null) ?? [];
-  const matches = (matchesData as unknown as AdminMatchRow[] | null) ?? [];
+  async function toggleOrganizer(p: AdminProfileRow) {
+    setBusy(p.id);
+    await supabase.rpc("set_organizer_role", {
+      p_player_id: p.id,
+      p_value: !p.is_organizer,
+    });
+    await load();
+    setBusy(null);
+  }
 
   const onboardedCount = profiles.filter((p) => p.onboarded).length;
+  const organizerCount = profiles.filter((p) => p.is_organizer).length;
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 pb-24 md:pb-10">
+      <a href="/inicio" className="mb-3 inline-block text-sm font-semibold text-slate-500">
+        🏠 Início
+      </a>
       <header className="mb-5">
         <h1 className="text-2xl font-extrabold">Gestão 🛡️</h1>
-        <p className="text-sm text-slate-500">Painel do administrador</p>
+        <p className="text-sm text-slate-500">Painel do proprietário</p>
       </header>
 
-      {/* Cards de resumo */}
-      <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="Cadastros" value={profiles.length} />
         <Stat label="Perfis completos" value={onboardedCount} />
+        <Stat label="Organizadores" value={organizerCount} />
         <Stat label="Matches" value={matches.length} />
       </div>
 
-      {/* Cadastros */}
       <section className="mb-10">
         <h2 className="mb-3 text-lg font-bold">Todos os cadastros</h2>
         <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
-          <table className="w-full min-w-[720px] text-left text-sm">
+          <table className="w-full min-w-[820px] text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase text-slate-500">
               <tr>
                 <Th>Nome</Th>
@@ -69,40 +79,53 @@ export default async function AdminPage() {
                 <Th>Telefone</Th>
                 <Th>Cidade</Th>
                 <Th>Classe</Th>
-                <Th>Formato</Th>
-                <Th>Status</Th>
-                <Th>Cadastro</Th>
+                <Th>Papel</Th>
+                <Th>Ação</Th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {profiles.map((p) => (
                 <tr key={p.id} className="hover:bg-slate-50">
-                  <Td className="font-medium">
-                    {p.name}
-                    {p.is_admin && (
-                      <span className="ml-2 rounded-full bg-court-100 px-2 py-0.5 text-[10px] font-bold text-court-700">
-                        admin
-                      </span>
-                    )}
-                  </Td>
+                  <Td className="font-medium">{p.name}</Td>
                   <Td className="text-slate-500">{p.email}</Td>
                   <Td>{p.phone ?? "—"}</Td>
                   <Td>{p.city ?? "—"}</Td>
                   <Td>{CLASS_LABELS[p.skill_class]}</Td>
-                  <Td>{FORMAT_LABELS[p.play_format]}</Td>
                   <Td>
-                    {p.onboarded ? (
-                      <span className="text-court-600">completo</span>
+                    {p.is_admin ? (
+                      <Role className="bg-court-100 text-court-700">👑 dono</Role>
+                    ) : p.is_organizer ? (
+                      <Role className="bg-amber-100 text-amber-700">organizador</Role>
                     ) : (
-                      <span className="text-amber-600">incompleto</span>
+                      <Role className="bg-slate-100 text-slate-500">operador</Role>
                     )}
                   </Td>
-                  <Td className="whitespace-nowrap text-slate-500">{fmtDate(p.created_at)}</Td>
+                  <Td>
+                    {p.is_admin ? (
+                      <span className="text-xs text-slate-300">—</span>
+                    ) : (
+                      <button
+                        onClick={() => toggleOrganizer(p)}
+                        disabled={busy === p.id}
+                        className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                          p.is_organizer
+                            ? "bg-slate-100 text-slate-600"
+                            : "bg-amber-600 text-white"
+                        }`}
+                      >
+                        {busy === p.id
+                          ? "..."
+                          : p.is_organizer
+                            ? "Remover organizador"
+                            : "Tornar organizador"}
+                      </button>
+                    )}
+                  </Td>
                 </tr>
               ))}
               {profiles.length === 0 && (
                 <tr>
-                  <Td className="text-slate-400" colSpan={8}>
+                  <Td className="text-slate-400" colSpan={7}>
                     Nenhum cadastro ainda.
                   </Td>
                 </tr>
@@ -112,7 +135,6 @@ export default async function AdminPage() {
         </div>
       </section>
 
-      {/* Matches */}
       <section>
         <h2 className="mb-3 text-lg font-bold">Matches acontecendo</h2>
         <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
@@ -164,6 +186,10 @@ function Stat({ label, value }: { label: string; value: number }) {
       <div className="mt-1 text-xs font-medium text-slate-500">{label}</div>
     </div>
   );
+}
+
+function Role({ children, className }: { children: React.ReactNode; className: string }) {
+  return <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${className}`}>{children}</span>;
 }
 
 function Th({ children }: { children: React.ReactNode }) {

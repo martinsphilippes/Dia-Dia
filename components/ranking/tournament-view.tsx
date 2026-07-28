@@ -91,9 +91,12 @@ export function TournamentView({
     <main className="min-h-[100dvh] bg-amber-50/40">
       <header className="bg-gradient-to-br from-amber-500 to-amber-700 px-5 pb-12 pt-6 text-white">
         <div className="mx-auto flex max-w-3xl items-center justify-between">
-          <Link href="/ranking" className="flex items-center gap-1 text-sm text-amber-50">
-            <IconBack className="h-5 w-5" /> Ranking
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link href="/inicio" className="text-sm text-amber-50">🏠 Início</Link>
+            <Link href="/ranking" className="flex items-center gap-1 text-sm text-amber-50">
+              <IconBack className="h-5 w-5" /> Ranking
+            </Link>
+          </div>
           <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold ring-1 ring-white/25">
             {TOURNAMENT_STATUS_LABELS[t.status]}
           </span>

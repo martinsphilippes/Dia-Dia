@@ -5,7 +5,7 @@ import { SUPABASE_ANON_KEY, SUPABASE_URL } from "./config";
 type CookieToSet = { name: string; value: string; options?: CookieOptions };
 
 // Rotas que exigem login
-const PROTECTED = ["/discover", "/matches", "/profile", "/onboarding", "/inicio", "/ranking"];
+const PROTECTED = ["/discover", "/matches", "/profile", "/onboarding", "/inicio", "/ranking", "/admin"];
 // Rotas exclusivas de visitantes (não logados)
 const GUEST_ONLY = ["/login"];
 

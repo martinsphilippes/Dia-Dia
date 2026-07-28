@@ -21,6 +21,9 @@ export default async function ProfilePage() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6 pb-24 md:pb-10">
+      <a href="/inicio" className="mb-3 inline-block text-sm font-semibold text-slate-500">
+        🏠 Início
+      </a>
       <header className="mb-5 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-extrabold">Meu perfil</h1>

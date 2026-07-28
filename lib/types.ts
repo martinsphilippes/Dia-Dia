@@ -41,6 +41,7 @@ export type AdminProfileRow = {
   play_format: PlayFormat;
   onboarded: boolean;
   is_admin: boolean;
+  is_organizer: boolean;
   latitude: number | null;
   longitude: number | null;
   search_radius_km: number;
