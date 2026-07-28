@@ -7,6 +7,7 @@ import { IconBack } from "@/components/icons";
 import { cx, initials } from "@/lib/utils";
 import {
   LeagueDetail,
+  LeagueMember,
   MATCH_STATUS_LABELS,
   MyLeagueMatch,
   MyPointsRow,
@@ -72,7 +73,7 @@ export function LeagueView({ leagueId, meId }: { leagueId: string; meId: string 
           <Link href="/ranking" className="flex items-center gap-1 text-sm text-amber-50">
             <IconBack className="h-5 w-5" /> Ligas
           </Link>
-          {league.is_organizer && (
+          {(league.is_organizer || league.is_owner) && (
             <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold ring-1 ring-white/25">
               organizador
             </span>
@@ -237,14 +238,14 @@ function Rounds({
 
   return (
     <div>
-      {league.is_organizer && (
+      {(league.is_organizer || league.is_owner) && (
         <button onClick={generate} disabled={busy} className="btn-primary mb-4 w-full text-sm">
           {busy ? "Sorteando..." : "🎲 Gerar nova rodada"}
         </button>
       )}
 
       {rounds.length === 0 ? (
-        <Empty text={league.is_organizer ? "Gere a primeira rodada acima." : "Nenhuma rodada ainda."} />
+        <Empty text={(league.is_organizer || league.is_owner) ? "Gere a primeira rodada acima." : "Nenhuma rodada ainda."} />
       ) : (
         <>
           <div className="mb-4 flex gap-2 overflow-x-auto">
@@ -272,7 +273,7 @@ function Rounds({
                 <RoundMatchCard
                   key={m.match_id}
                   m={m}
-                  canReport={league.is_organizer || m.challenger_id === meId || m.challenged_id === meId}
+                  canReport={(league.is_organizer || league.is_owner) || m.challenger_id === meId || m.challenged_id === meId}
                   onReported={() => {
                     if (selected) loadMatches(selected);
                     loadRounds();
@@ -744,11 +745,118 @@ function About({ league, onChange }: { league: LeagueDetail; onChange: () => voi
       ) : (
         <p className="text-slate-400">Sem descrição adicional.</p>
       )}
-      {league.is_organizer && (
+      {(league.is_organizer || league.is_owner) && (
         <button onClick={() => setEdit(true)} className="text-sm font-semibold text-amber-700">
           Editar informações
         </button>
       )}
+
+      {league.is_owner && <OwnerOrganizerPanel league={league} onChange={onChange} />}
+    </div>
+  );
+}
+
+/* ---------------- Painel do dono: definir organizador ---------------- */
+function OwnerOrganizerPanel({
+  league,
+  onChange,
+}: {
+  league: LeagueDetail;
+  onChange: () => void;
+}) {
+  const supabase = createClient();
+  const [members, setMembers] = useState<LeagueMember[] | null>(null);
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    const { data } = await supabase.rpc("get_league_members", { p_league_id: league.id });
+    setMembers((data as unknown as LeagueMember[]) ?? []);
+  }, [supabase, league.id]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function makeOrganizer(playerId: string) {
+    setBusy(true);
+    setMsg(null);
+    await supabase.rpc("set_league_organizer", { p_league_id: league.id, p_player_id: playerId });
+    setBusy(false);
+    await load();
+    onChange();
+  }
+
+  async function addByEmail(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email.trim()) return;
+    setBusy(true);
+    setMsg(null);
+    const { data } = await supabase.rpc("add_league_member", {
+      p_league_id: league.id,
+      p_email: email.trim(),
+    });
+    setBusy(false);
+    if (data === "não encontrado") setMsg("Login não encontrado (precisa ter conta no app).");
+    setEmail("");
+    load();
+  }
+
+  return (
+    <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+      <div className="flex items-center gap-2 text-sm font-bold text-amber-800">
+        👑 Painel do dono — organizador da liga
+      </div>
+      <p className="mt-1 text-xs text-amber-700">
+        Escolha quem organiza esta liga. O organizador pode gerar rodadas e lançar
+        resultados; o restante são operadores/jogadores.
+      </p>
+
+      <form onSubmit={addByEmail} className="mt-3 flex gap-2">
+        <input
+          className="input flex-1"
+          placeholder="Adicionar login por email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+        <button className="btn-ghost text-sm">Add</button>
+      </form>
+      {msg && <p className="mt-2 text-xs text-red-600">{msg}</p>}
+
+      <ul className="mt-3 space-y-1.5">
+        {(members ?? []).map((m) => (
+          <li
+            key={m.player_id}
+            className="flex items-center justify-between rounded-xl bg-white px-3 py-2 text-sm"
+          >
+            <div className="flex items-center gap-2">
+              {m.avatar_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={m.avatar_url} alt="" className="h-7 w-7 rounded-full object-cover" />
+              ) : (
+                <div className="grid h-7 w-7 place-items-center rounded-full bg-amber-100 text-[10px] font-bold text-amber-700">
+                  {initials(m.name)}
+                </div>
+              )}
+              <span>{m.name}</span>
+            </div>
+            {m.is_organizer ? (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                organizador
+              </span>
+            ) : (
+              <button
+                onClick={() => makeOrganizer(m.player_id)}
+                disabled={busy}
+                className="text-xs font-semibold text-amber-700"
+              >
+                Tornar organizador
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

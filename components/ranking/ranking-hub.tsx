@@ -13,7 +13,7 @@ import {
   TournamentSummary,
 } from "@/lib/types";
 
-export function RankingHub() {
+export function RankingHub({ isOwner }: { isOwner: boolean }) {
   const supabase = createClient();
   const router = useRouter();
   const [mine, setMine] = useState<LeagueSummary[]>([]);
@@ -134,23 +134,24 @@ export function RankingHub() {
             </ul>
           )}
 
-          {creating === "league" ? (
-            <CreateForm
-              label="liga"
-              name={name}
-              city={city}
-              setName={setName}
-              setCity={setCity}
-              busy={busy}
-              error={error}
-              onSubmit={submitCreate}
-              onCancel={() => setCreating(null)}
-            />
-          ) : (
-            <DashedButton onClick={() => { setCreating("league"); setName(""); setCity(""); setError(null); }}>
-              + Criar uma liga (ranking contínuo)
-            </DashedButton>
-          )}
+          {isOwner &&
+            (creating === "league" ? (
+              <CreateForm
+                label="liga"
+                name={name}
+                city={city}
+                setName={setName}
+                setCity={setCity}
+                busy={busy}
+                error={error}
+                onSubmit={submitCreate}
+                onCancel={() => setCreating(null)}
+              />
+            ) : (
+              <DashedButton onClick={() => { setCreating("league"); setName(""); setCity(""); setError(null); }}>
+                + Criar uma liga (ranking contínuo)
+              </DashedButton>
+            ))}
         </section>
 
         {/* Ligas abertas */}
@@ -204,23 +205,24 @@ export function RankingHub() {
             </ul>
           )}
 
-          {creating === "tournament" ? (
-            <CreateForm
-              label="torneio"
-              name={name}
-              city={city}
-              setName={setName}
-              setCity={setCity}
-              busy={busy}
-              error={error}
-              onSubmit={submitCreate}
-              onCancel={() => setCreating(null)}
-            />
-          ) : (
-            <DashedButton onClick={() => { setCreating("tournament"); setName(""); setCity(""); setError(null); }}>
-              + Criar um torneio (chaveamento)
-            </DashedButton>
-          )}
+          {isOwner &&
+            (creating === "tournament" ? (
+              <CreateForm
+                label="torneio"
+                name={name}
+                city={city}
+                setName={setName}
+                setCity={setCity}
+                busy={busy}
+                error={error}
+                onSubmit={submitCreate}
+                onCancel={() => setCreating(null)}
+              />
+            ) : (
+              <DashedButton onClick={() => { setCreating("tournament"); setName(""); setCity(""); setError(null); }}>
+                + Criar um torneio (chaveamento)
+              </DashedButton>
+            ))}
         </section>
 
         {/* Inscrições abertas */}

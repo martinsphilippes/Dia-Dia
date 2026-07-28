@@ -143,10 +143,18 @@ export type LeagueDetail = {
   organizer_id: string;
   organizer_name: string;
   is_organizer: boolean;
+  is_owner: boolean;
   am_member: boolean;
   member_count: number;
   current_round_id: string | null;
   current_round_number: number | null;
+};
+
+export type LeagueMember = {
+  player_id: string;
+  name: string;
+  avatar_url: string | null;
+  is_organizer: boolean;
 };
 
 export type Standing = {
@@ -258,6 +266,7 @@ export type TournamentDetail = {
   organizer_id: string;
   organizer_name: string;
   is_organizer: boolean;
+  is_owner: boolean;
 };
 
 export type TournamentCategory = {

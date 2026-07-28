@@ -27,6 +27,24 @@ export function TournamentView({
   const [selCat, setSelCat] = useState<string | null>(null);
   const [newCat, setNewCat] = useState("");
   const [addingCat, setAddingCat] = useState(false);
+  const [orgEmail, setOrgEmail] = useState("");
+  const [orgMsg, setOrgMsg] = useState<string | null>(null);
+
+  async function setOrganizer(e: React.FormEvent) {
+    e.preventDefault();
+    if (!orgEmail.trim()) return;
+    setOrgMsg(null);
+    const { data } = await supabase.rpc("set_tournament_organizer", {
+      p_tournament_id: tournamentId,
+      p_email: orgEmail.trim(),
+    });
+    if (data === "não encontrado") setOrgMsg("Login não encontrado (precisa ter conta no app).");
+    else {
+      setOrgMsg("Organizador definido! ✅");
+      setOrgEmail("");
+      loadTournament();
+    }
+  }
 
   const loadTournament = useCallback(async () => {
     const [{ data: td }, { data: cd }] = await Promise.all([
@@ -90,7 +108,7 @@ export function TournamentView({
 
       <div className="mx-auto -mt-8 max-w-3xl space-y-4 px-4 pb-24">
         {/* Controles do organizador */}
-        {t.is_organizer && (
+        {(t.is_organizer || t.is_owner) && (
           <div className="rounded-2xl bg-white p-4 shadow-card">
             <div className="text-sm font-semibold text-slate-700">Painel do organizador</div>
             <div className="mt-2 flex flex-wrap gap-2">
@@ -113,11 +131,34 @@ export function TournamentView({
           </div>
         )}
 
+        {/* Painel do dono: definir organizador do torneio */}
+        {t.is_owner && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+            <div className="flex items-center gap-2 text-sm font-bold text-amber-800">
+              👑 Painel do dono — organizador do torneio
+            </div>
+            <p className="mt-1 text-xs text-amber-700">
+              Organizador atual: <strong>{t.organizer_name}</strong>. Informe o email
+              de outro login para passar a organização a ele.
+            </p>
+            <form onSubmit={setOrganizer} className="mt-3 flex gap-2">
+              <input
+                className="input flex-1"
+                placeholder="email do novo organizador"
+                value={orgEmail}
+                onChange={(e) => setOrgEmail(e.target.value)}
+              />
+              <button className="btn-ghost text-sm">Definir</button>
+            </form>
+            {orgMsg && <p className="mt-2 text-xs text-amber-700">{orgMsg}</p>}
+          </div>
+        )}
+
         {/* Categorias */}
         <div className="rounded-3xl bg-white p-5 shadow-card">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold">Categorias</h2>
-            {t.is_organizer && !addingCat && (
+            {(t.is_organizer || t.is_owner) && !addingCat && (
               <button onClick={() => setAddingCat(true)} className="text-sm font-semibold text-amber-700">
                 + Categoria
               </button>
@@ -142,7 +183,7 @@ export function TournamentView({
 
           {cats.length === 0 ? (
             <p className="mt-3 text-sm text-slate-500">
-              {t.is_organizer
+              {(t.is_organizer || t.is_owner)
                 ? "Crie ao menos uma categoria para abrir inscrições."
                 : "Sem categorias ainda."}
             </p>
@@ -298,7 +339,7 @@ function CategoryPanel({
               </p>
             )}
 
-            {tournament.is_organizer && (
+            {(tournament.is_organizer || tournament.is_owner) && (
               <>
                 <form onSubmit={addEntry} className="flex gap-2">
                   <input
@@ -325,13 +366,13 @@ function CategoryPanel({
           matches={bracket!}
           meId={meId}
           canReport={(m) =>
-            tournament.is_organizer || m.player_a_id === meId || m.player_b_id === meId
+            (tournament.is_organizer || tournament.is_owner) || m.player_a_id === meId || m.player_b_id === meId
           }
           onReported={() => {
             load();
             onChange();
           }}
-          canRegenerate={tournament.is_organizer}
+          canRegenerate={(tournament.is_organizer || tournament.is_owner)}
           onRegenerate={generate}
           busy={busy}
         />

@@ -11,5 +11,11 @@ export default async function RankingHomePage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  return <RankingHub />;
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("is_admin")
+    .eq("id", user.id)
+    .single();
+
+  return <RankingHub isOwner={!!profile?.is_admin} />;
 }
