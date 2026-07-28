@@ -37,7 +37,7 @@ export default async function AppLayout({
       <div className="mx-auto flex max-w-6xl">
         {/* Sidebar desktop */}
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-slate-200 bg-white p-5 md:flex">
-          <Link href="/discover" className="flex items-center gap-2 px-2 text-lg font-bold">
+          <Link href="/inicio" className="flex items-center gap-2 px-2 text-lg font-bold">
             <TennisBall className="h-8 w-8" />
             MatchPoint
           </Link>

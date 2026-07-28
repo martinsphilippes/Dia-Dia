@@ -114,3 +114,110 @@ export function formatDistance(km: number | null | undefined): string {
   if (km < 1) return "menos de 1 km";
   return `a ${Math.round(km)} km`;
 }
+
+// ===================== Ranking =====================
+
+export type LeagueSummary = {
+  id: string;
+  name: string;
+  city: string | null;
+  is_organizer: boolean;
+  member_count: number;
+};
+
+export type OpenLeague = {
+  id: string;
+  name: string;
+  city: string | null;
+  organizer_name: string;
+  member_count: number;
+  am_member: boolean;
+};
+
+export type LeagueDetail = {
+  id: string;
+  name: string;
+  city: string | null;
+  description: string | null;
+  about_text: string | null;
+  organizer_id: string;
+  organizer_name: string;
+  is_organizer: boolean;
+  am_member: boolean;
+  member_count: number;
+  current_round_id: string | null;
+  current_round_number: number | null;
+};
+
+export type Standing = {
+  pos: number;
+  player_id: string;
+  name: string;
+  avatar_url: string | null;
+  city: string | null;
+  skill_class: SkillClass;
+  points: number;
+  games: number;
+};
+
+export type RoundInfo = {
+  id: string;
+  number: number;
+  status: string;
+  match_count: number;
+  played_count: number;
+};
+
+export type MatchStatus = "marcar" | "agendado" | "jogado" | "aberto" | "bye";
+
+export type RoundMatch = {
+  match_id: string;
+  challenger_id: string;
+  challenger_name: string;
+  challenger_avatar: string | null;
+  challenged_id: string;
+  challenged_name: string;
+  challenged_avatar: string | null;
+  status: MatchStatus;
+  scheduled_at: string | null;
+  location: string | null;
+  sets_challenger: number | null;
+  sets_challenged: number | null;
+  challenger_points: number;
+  challenged_points: number;
+};
+
+export type MyLeagueMatch = {
+  match_id: string;
+  round_number: number;
+  opponent_id: string;
+  opponent_name: string;
+  opponent_avatar: string | null;
+  opponent_phone: string | null;
+  am_challenger: boolean;
+  status: MatchStatus;
+  scheduled_at: string | null;
+  location: string | null;
+  sets_me: number | null;
+  sets_opp: number | null;
+  my_points: number;
+};
+
+export type MyPointsRow = {
+  round_number: number;
+  opponent_name: string;
+  am_challenger: boolean;
+  sets_me: number | null;
+  sets_opp: number | null;
+  points: number;
+  status: MatchStatus;
+  played_at: string | null;
+};
+
+export const MATCH_STATUS_LABELS: Record<MatchStatus, string> = {
+  marcar: "A marcar",
+  agendado: "Agendado",
+  jogado: "Jogado",
+  aberto: "Sem pontuação",
+  bye: "Folga",
+};

@@ -10,7 +10,7 @@ type Mode = "login" | "signup";
 export function AuthForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const redirectTo = params.get("redirect") || "/discover";
+  const redirectTo = params.get("redirect") || "/inicio";
 
   const [mode, setMode] = useState<Mode>("signup");
   const [name, setName] = useState("");
@@ -42,7 +42,7 @@ export function AuthForm() {
         if (error) throw error;
 
         if (data.session) {
-          router.push("/onboarding");
+          router.push("/inicio");
           router.refresh();
           return;
         }
