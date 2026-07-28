@@ -221,3 +221,87 @@ export const MATCH_STATUS_LABELS: Record<MatchStatus, string> = {
   aberto: "Sem pontuação",
   bye: "Folga",
 };
+
+// ===================== Torneios =====================
+
+export type TournamentStatus = "inscricoes" | "em_andamento" | "encerrado";
+
+export const TOURNAMENT_STATUS_LABELS: Record<TournamentStatus, string> = {
+  inscricoes: "Inscrições abertas",
+  em_andamento: "Em andamento",
+  encerrado: "Encerrado",
+};
+
+export type TournamentSummary = {
+  id: string;
+  name: string;
+  city: string | null;
+  status: TournamentStatus;
+  is_organizer: boolean;
+};
+
+export type OpenTournament = {
+  id: string;
+  name: string;
+  city: string | null;
+  organizer_name: string;
+  category_count: number;
+  entry_count: number;
+};
+
+export type TournamentDetail = {
+  id: string;
+  name: string;
+  city: string | null;
+  description: string | null;
+  status: TournamentStatus;
+  organizer_id: string;
+  organizer_name: string;
+  is_organizer: boolean;
+};
+
+export type TournamentCategory = {
+  id: string;
+  name: string;
+  entry_count: number;
+  am_registered: boolean;
+  has_bracket: boolean;
+};
+
+export type CategoryEntry = {
+  player_id: string;
+  name: string;
+  avatar_url: string | null;
+  city: string | null;
+  skill_class: SkillClass;
+};
+
+export type BracketStatus = "aguardando" | "pronto" | "jogado" | "bye";
+
+export type BracketMatch = {
+  match_id: string;
+  round_no: number;
+  slot: number;
+  total_rounds: number;
+  player_a_id: string | null;
+  player_a_name: string | null;
+  player_a_avatar: string | null;
+  player_b_id: string | null;
+  player_b_name: string | null;
+  player_b_avatar: string | null;
+  winner_id: string | null;
+  sets_a: number | null;
+  sets_b: number | null;
+  status: BracketStatus;
+};
+
+// Rótulo da fase do chaveamento (a partir do total de rodadas)
+export function bracketRoundLabel(roundNo: number, totalRounds: number): string {
+  const fromEnd = totalRounds - roundNo; // 0 = final
+  if (fromEnd === 0) return "Final";
+  if (fromEnd === 1) return "Semifinal";
+  if (fromEnd === 2) return "Quartas de final";
+  if (fromEnd === 3) return "Oitavas de final";
+  const playersInRound = Math.pow(2, totalRounds - roundNo + 1);
+  return `${playersInRound} avos`;
+}
