@@ -24,6 +24,7 @@ export function AdminDashboard() {
   const [profiles, setProfiles] = useState<AdminProfileRow[]>([]);
   const [matches, setMatches] = useState<AdminMatchRow[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
 
   const load = useCallback(async () => {
     const [{ data: p }, { data: m }] = await Promise.all([
@@ -51,6 +52,15 @@ export function AdminDashboard() {
   const onboardedCount = profiles.filter((p) => p.onboarded).length;
   const organizerCount = profiles.filter((p) => p.is_organizer).length;
 
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? profiles.filter((p) =>
+        `${p.name ?? ""} ${p.email ?? ""} ${p.phone ?? ""} ${p.city ?? ""}`
+          .toLowerCase()
+          .includes(q),
+      )
+    : profiles;
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 pb-24 md:pb-10">
       <a href="/inicio" className="mb-3 inline-block text-sm font-semibold text-slate-500">
@@ -70,6 +80,23 @@ export function AdminDashboard() {
 
       <section className="mb-10">
         <h2 className="mb-3 text-lg font-bold">Todos os cadastros</h2>
+        <div className="mb-3 flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2">
+          <span className="text-slate-400">🔍</span>
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Pesquisar por nome, email, telefone ou cidade"
+            className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+          />
+          {query && (
+            <button
+              onClick={() => setQuery("")}
+              className="text-xs font-semibold text-slate-400"
+            >
+              limpar
+            </button>
+          )}
+        </div>
         <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
           <table className="w-full min-w-[820px] text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase text-slate-500">
@@ -84,7 +111,7 @@ export function AdminDashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {profiles.map((p) => (
+              {filtered.map((p) => (
                 <tr key={p.id} className="hover:bg-slate-50">
                   <Td className="font-medium">{p.name}</Td>
                   <Td className="text-slate-500">{p.email}</Td>
@@ -123,10 +150,12 @@ export function AdminDashboard() {
                   </Td>
                 </tr>
               ))}
-              {profiles.length === 0 && (
+              {filtered.length === 0 && (
                 <tr>
                   <Td className="text-slate-400" colSpan={7}>
-                    Nenhum cadastro ainda.
+                    {profiles.length === 0
+                      ? "Nenhum cadastro ainda."
+                      : "Nenhum cadastro encontrado."}
                   </Td>
                 </tr>
               )}
