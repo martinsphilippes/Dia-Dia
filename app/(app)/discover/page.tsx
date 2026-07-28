@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { SwipeDeck } from "@/components/swipe-deck";
+import { BackButton } from "@/components/back-button";
 import type { Profile } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -23,9 +24,12 @@ export default async function DiscoverPage() {
 
   return (
     <div className="mx-auto max-w-lg px-4 py-6 pb-24 md:pb-8">
-      <a href="/inicio" className="mb-3 inline-block text-sm font-semibold text-slate-500">
-        🏠 Início
-      </a>
+      <div className="mb-3 flex items-center gap-4">
+        <BackButton />
+        <a href="/inicio" className="inline-block text-sm font-semibold text-slate-500">
+          🏠 Início
+        </a>
+      </div>
       <header className="mb-4 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-extrabold">Descobrir</h1>

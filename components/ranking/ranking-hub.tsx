@@ -85,9 +85,14 @@ export function RankingHub({ isOwner }: { isOwner: boolean }) {
     <main className="min-h-[100dvh] bg-amber-50/40">
       <header className="bg-gradient-to-br from-amber-500 to-amber-700 px-5 pb-10 pt-6 text-white">
         <div className="mx-auto flex max-w-2xl items-center justify-between">
-          <Link href="/inicio" className="flex items-center gap-1 text-sm text-amber-50">
-            <IconBack className="h-5 w-5" /> Início
-          </Link>
+          <div className="flex items-center gap-3">
+            <button onClick={() => router.back()} className="text-sm text-amber-50">
+              ← Voltar
+            </button>
+            <Link href="/inicio" className="flex items-center gap-1 text-sm text-amber-50">
+              <IconBack className="h-5 w-5" /> Início
+            </Link>
+          </div>
           <form action="/auth/signout" method="post">
             <button className="rounded-full px-3 py-1.5 text-sm text-amber-50 ring-1 ring-white/25">
               Sair

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { MatchSummary } from "@/lib/types";
 import { initials, timeAgo } from "@/lib/utils";
+import { BackButton } from "@/components/back-button";
 
 export const dynamic = "force-dynamic";
 
@@ -18,9 +19,12 @@ export default async function MatchesPage() {
 
   return (
     <div className="mx-auto max-w-lg px-4 py-6 pb-24 md:pb-8">
-      <a href="/inicio" className="mb-3 inline-block text-sm font-semibold text-slate-500">
-        🏠 Início
-      </a>
+      <div className="mb-3 flex items-center gap-4">
+        <BackButton />
+        <a href="/inicio" className="inline-block text-sm font-semibold text-slate-500">
+          🏠 Início
+        </a>
+      </div>
       <h1 className="text-2xl font-extrabold">Matches</h1>
       <p className="text-sm text-slate-500">Seus parceiros de quadra</p>
 

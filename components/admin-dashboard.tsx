@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { BackButton } from "@/components/back-button";
 import {
   CLASS_LABELS,
   FORMAT_LABELS,
@@ -63,9 +64,12 @@ export function AdminDashboard() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6 pb-24 md:pb-10">
-      <a href="/inicio" className="mb-3 inline-block text-sm font-semibold text-slate-500">
-        🏠 Início
-      </a>
+      <div className="mb-3 flex items-center gap-4">
+        <BackButton />
+        <a href="/inicio" className="inline-block text-sm font-semibold text-slate-500">
+          🏠 Início
+        </a>
+      </div>
       <header className="mb-5">
         <h1 className="text-2xl font-extrabold">Gestão 🛡️</h1>
         <p className="text-sm text-slate-500">Painel do proprietário</p>
