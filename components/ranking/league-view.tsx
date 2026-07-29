@@ -111,9 +111,18 @@ export function LeagueView({ leagueId, meId }: { leagueId: string; meId: string 
           )}
         </div>
         <div className="mx-auto mt-5 max-w-3xl">
+          {league.club_name && (
+            <div className="text-xs font-semibold uppercase tracking-wide text-amber-100">
+              🎾 {league.club_name}
+            </div>
+          )}
           <h1 className="text-2xl font-extrabold">🏆 {league.name}</h1>
-          <p className="mt-1 text-sm text-amber-50">
-            {league.club_name ? `🎾 ${league.club_name} · ` : ""}
+          {league.am_member && (
+            <div className="mt-2">
+              <StatusBadge leagueId={league.id} meId={meId} isManager={isManager} />
+            </div>
+          )}
+          <p className="mt-2 text-sm text-amber-50">
             {league.city ? `${league.city} · ` : ""}
             {league.member_count} jogador{league.member_count === 1 ? "" : "es"}
             {league.current_round_number ? ` · rodada ${league.current_round_number}` : ""}
@@ -167,7 +176,7 @@ export function LeagueView({ leagueId, meId }: { leagueId: string; meId: string 
           {tab === "minha_pontuacao" && <MyPoints leagueId={leagueId} />}
           {tab === "quadras" && <CourtsConfig leagueId={leagueId} />}
           {tab === "regras" && <Rules />}
-          {tab === "sobre" && <About league={league} meId={meId} onChange={loadLeague} />}
+          {tab === "sobre" && <About league={league} onChange={loadLeague} />}
         </div>
       </div>
     </main>
@@ -691,15 +700,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 /* ---------------- Sobre ---------------- */
-function About({
-  league,
-  meId,
-  onChange,
-}: {
-  league: LeagueDetail;
-  meId: string;
-  onChange: () => void;
-}) {
+function About({ league, onChange }: { league: LeagueDetail; onChange: () => void }) {
   const supabase = createClient();
   const [edit, setEdit] = useState(false);
   const [desc, setDesc] = useState(league.description || "");
@@ -740,7 +741,6 @@ function About({
 
   return (
     <div className="space-y-3 text-sm text-slate-700">
-      {league.am_member && <SelfStatus leagueId={league.id} meId={meId} />}
       <div>
         <span className="font-semibold">Organizador:</span> {league.organizer_name}
       </div>
@@ -865,12 +865,26 @@ function DeleteLeague({ league }: { league: LeagueDetail }) {
   );
 }
 
-/* ---------------- Minha situação (auto-serviço do jogador) ---------------- */
-const SELF_STATUS_OPTIONS: MemberStatus[] = ["ativo", "licenciado", "desativado"];
+/* ---------------- Badge de status no cabeçalho ---------------- */
+const STATUS_STYLE: Record<MemberStatus, { label: string; dot: string; pill: string }> = {
+  ativo: { label: "Ativo", dot: "bg-green-500", pill: "bg-green-100 text-green-800" },
+  licenciado: { label: "Licenciado", dot: "bg-amber-400", pill: "bg-amber-100 text-amber-800" },
+  desativado: { label: "Desativado", dot: "bg-slate-400", pill: "bg-slate-100 text-slate-700" },
+  suspenso: { label: "Suspenso", dot: "bg-red-500", pill: "bg-red-100 text-red-800" },
+};
 
-function SelfStatus({ leagueId, meId }: { leagueId: string; meId: string }) {
+function StatusBadge({
+  leagueId,
+  meId,
+  isManager,
+}: {
+  leagueId: string;
+  meId: string;
+  isManager: boolean;
+}) {
   const supabase = createClient();
   const [status, setStatus] = useState<MemberStatus | null>(null);
+  const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -882,48 +896,67 @@ function SelfStatus({ leagueId, meId }: { leagueId: string; meId: string }) {
     load();
   }, [load]);
 
+  if (!status) return null;
+
+  // Jogador comum: ativo/licenciado/desativado. Gestor: também suspenso.
+  const options: MemberStatus[] = isManager
+    ? ["ativo", "licenciado", "suspenso", "desativado"]
+    : ["ativo", "licenciado", "desativado"];
+  // Suspensão só sai/entra pela organização.
+  const canChange = isManager || status !== "suspenso";
+  const st = STATUS_STYLE[status];
+
   async function change(s: MemberStatus) {
+    if (s === status) return setOpen(false);
     setBusy(true);
-    await supabase.rpc("set_member_status", {
-      p_league_id: leagueId,
-      p_player_id: meId,
-      p_status: s,
-    });
+    await supabase.rpc("set_member_status", { p_league_id: leagueId, p_player_id: meId, p_status: s });
     setBusy(false);
+    setOpen(false);
     load();
   }
 
-  if (!status) return null;
-
   return (
-    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-      <div className="text-sm font-bold text-slate-700">Minha situação</div>
-      {status === "suspenso" ? (
-        <div className="mt-2 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-700">
-          🚫 Você está <strong>suspenso</strong> pela organização. Fale com o organizador para
-          voltar a participar.
-        </div>
-      ) : (
+    <div className="relative inline-block">
+      <button
+        onClick={() => canChange && setOpen((v) => !v)}
+        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold shadow-sm ${st.pill} ${
+          canChange ? "" : "cursor-default"
+        }`}
+      >
+        <span className={`h-2 w-2 rounded-full ${st.dot}`} />
+        {st.label}
+        {canChange && <span className="opacity-60">▾</span>}
+      </button>
+
+      {open && (
         <>
-          <p className="mt-1 text-xs text-slate-500">
-            Defina sua disponibilidade. Licenciado te tira das rodadas sem perder o histórico;
-            desativado encerra sua participação.
-          </p>
-          <div className="mt-2 flex gap-1.5">
-            {SELF_STATUS_OPTIONS.map((s) => (
-              <button
-                key={s}
-                onClick={() => change(s)}
-                disabled={busy || status === s}
-                className={`flex-1 rounded-full px-2 py-1.5 text-xs font-semibold ${
-                  status === s
-                    ? "bg-amber-600 text-white"
-                    : "bg-white text-slate-600 ring-1 ring-slate-200"
-                }`}
-              >
-                {MEMBER_STATUS_LABELS[s]}
-              </button>
-            ))}
+          <button className="fixed inset-0 z-40 cursor-default" onClick={() => setOpen(false)} aria-label="Fechar" />
+          <div className="absolute left-0 top-9 z-50 w-56 rounded-2xl bg-white p-1.5 text-left text-slate-800 shadow-2xl ring-1 ring-slate-200">
+            <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-400">
+              Meu status
+            </div>
+            {options.map((s) => {
+              const o = STATUS_STYLE[s];
+              return (
+                <button
+                  key={s}
+                  disabled={busy}
+                  onClick={() => change(s)}
+                  className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm ${
+                    status === s ? "bg-slate-50 font-semibold" : "hover:bg-slate-50"
+                  }`}
+                >
+                  <span className={`h-2.5 w-2.5 rounded-full ${o.dot}`} />
+                  {o.label}
+                  {status === s && <span className="ml-auto text-court-600">✓</span>}
+                </button>
+              );
+            })}
+            {!isManager && (
+              <p className="px-3 py-1.5 text-[10px] text-slate-400">
+                Suspensão é aplicada apenas pela organização.
+              </p>
+            )}
           </div>
         </>
       )}
