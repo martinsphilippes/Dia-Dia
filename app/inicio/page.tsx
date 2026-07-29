@@ -47,8 +47,8 @@ export default async function HubPage() {
             <div className="text-5xl">🎾</div>
             <h2 className="mt-4 text-xl font-bold">MatchPoint</h2>
             <p className="mt-1 text-sm text-slate-600">
-              Ache sparrings e parceiros de tênis por perto — em casa ou
-              viajando. Busque, solicite e marque o jogo em minutos.
+              Ache parceiros de treino e jogadores disponíveis por perto — em
+              casa ou viajando. Busque, solicite e marque o jogo em minutos.
             </p>
             <span className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-court-700">
               Encontrar parceiros →

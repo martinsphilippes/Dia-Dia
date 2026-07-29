@@ -6,7 +6,7 @@ export type MpMode = "none" | "available" | "sparring";
 export const MP_MODE_LABELS: Record<MpMode, string> = {
   none: "Não participar",
   available: "Jogador Disponível",
-  sparring: "Sparring Profissional",
+  sparring: "Parceiro de Treino",
 };
 
 export const MP_PREFS = ["treino", "amistoso", "simples", "duplas"];

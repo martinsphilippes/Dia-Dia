@@ -32,7 +32,7 @@ export default async function MatchPointPage() {
       <header className="mb-4">
         <h1 className="text-2xl font-extrabold">🎾 MatchPoint</h1>
         <p className="text-sm text-slate-500">
-          Ache sparrings e parceiros para jogar — perto de você ou onde estiver viajando.
+          Ache parceiros de treino e jogadores disponíveis — perto de você ou onde estiver viajando.
         </p>
       </header>
 

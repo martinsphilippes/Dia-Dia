@@ -70,7 +70,7 @@ export function MpProfileDetail({ id }: { id: string }) {
                   p.mp_mode === "sparring" ? "bg-amber-100 text-amber-700" : "bg-court-100 text-court-700"
                 }`}
               >
-                {p.mp_mode === "sparring" ? "Sparring" : "Disponível"}
+                {p.mp_mode === "sparring" ? "Parceiro de Treino" : "Disponível"}
               </span>
             </div>
             <div className="text-sm text-slate-500">
