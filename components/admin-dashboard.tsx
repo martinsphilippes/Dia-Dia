@@ -8,6 +8,7 @@ import {
   FORMAT_LABELS,
   type AdminMatchRow,
   type AdminProfileRow,
+  type ArchivedLeague,
 } from "@/lib/types";
 
 function fmtDate(iso: string) {
@@ -24,17 +25,27 @@ export function AdminDashboard() {
   const supabase = createClient();
   const [profiles, setProfiles] = useState<AdminProfileRow[]>([]);
   const [matches, setMatches] = useState<AdminMatchRow[]>([]);
+  const [archived, setArchived] = useState<ArchivedLeague[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [query, setQuery] = useState("");
 
   const load = useCallback(async () => {
-    const [{ data: p }, { data: m }] = await Promise.all([
+    const [{ data: p }, { data: m }, { data: a }] = await Promise.all([
       supabase.rpc("admin_all_profiles"),
       supabase.rpc("admin_all_matches"),
+      supabase.rpc("admin_archived_leagues"),
     ]);
     setProfiles((p as unknown as AdminProfileRow[]) ?? []);
     setMatches((m as unknown as AdminMatchRow[]) ?? []);
+    setArchived((a as unknown as ArchivedLeague[]) ?? []);
   }, [supabase]);
+
+  async function restore(id: string) {
+    setBusy(id);
+    await supabase.rpc("restore_league", { p_league_id: id });
+    await load();
+    setBusy(null);
+  }
 
   useEffect(() => {
     load();
@@ -207,6 +218,44 @@ export function AdminDashboard() {
             </tbody>
           </table>
         </div>
+      </section>
+
+      <section className="mt-10">
+        <h2 className="mb-3 text-lg font-bold">Ligas arquivadas 🗄️</h2>
+        {archived.length === 0 ? (
+          <p className="rounded-2xl border border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-400">
+            Nenhuma liga arquivada.
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {archived.map((a) => (
+              <li
+                key={a.league_id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3"
+              >
+                <div className="min-w-0">
+                  <div className="font-semibold">{a.league_name}</div>
+                  <div className="text-xs text-slate-500">
+                    Clube: {a.club_name ?? "—"} · por {a.deleted_by_name ?? "—"} ·{" "}
+                    {fmtDate(a.deleted_at)}
+                  </div>
+                  <div className="text-xs text-slate-400">
+                    {a.reason ? `Motivo: ${a.reason} · ` : ""}
+                    {a.affected_matches} jogo(s) cancelado(s) · {a.affected_bookings} reserva(s)
+                    liberada(s)
+                  </div>
+                </div>
+                <button
+                  onClick={() => restore(a.league_id)}
+                  disabled={busy === a.league_id}
+                  className="shrink-0 rounded-full bg-court-600 px-3 py-1.5 text-xs font-semibold text-white"
+                >
+                  {busy === a.league_id ? "..." : "Restaurar"}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
     </div>
   );

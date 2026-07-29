@@ -151,6 +151,18 @@ export type LeagueDetail = {
   current_round_number: number | null;
   club_id: string | null;
   club_name: string | null;
+  status: "ativo" | "arquivado";
+};
+
+export type ArchivedLeague = {
+  league_id: string;
+  league_name: string;
+  club_name: string | null;
+  deleted_by_name: string | null;
+  reason: string | null;
+  affected_matches: number;
+  affected_bookings: number;
+  deleted_at: string;
 };
 
 export type MyClub = {
@@ -241,7 +253,7 @@ export type RoundInfo = {
   played_count: number;
 };
 
-export type MatchStatus = "marcar" | "agendado" | "jogado" | "aberto" | "bye";
+export type MatchStatus = "marcar" | "agendado" | "jogado" | "aberto" | "bye" | "cancelado";
 
 export type RoundMatch = {
   match_id: string;
@@ -297,6 +309,7 @@ export const MATCH_STATUS_LABELS: Record<MatchStatus, string> = {
   jogado: "Jogado",
   aberto: "Sem pontuação",
   bye: "Folga",
+  cancelado: "Cancelado",
 };
 
 // ===================== Torneios =====================

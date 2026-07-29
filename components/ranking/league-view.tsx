@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { IconBack } from "@/components/icons";
 import { cx, initials } from "@/lib/utils";
@@ -73,6 +74,26 @@ export function LeagueView({ leagueId, meId }: { leagueId: string; meId: string 
     );
   }
 
+  const isManager = league.is_organizer || league.is_owner;
+
+  // Liga arquivada: jogador comum não acessa
+  if (league.status === "arquivado" && !isManager) {
+    return (
+      <main className="grid min-h-[100dvh] place-items-center bg-amber-50/40 px-6 text-center">
+        <div>
+          <div className="text-5xl">🏁</div>
+          <h1 className="mt-3 text-xl font-extrabold text-slate-800">Competição encerrada</h1>
+          <p className="mx-auto mt-1 max-w-xs text-sm text-slate-500">
+            Esta liga foi encerrada pela organização e não está mais disponível.
+          </p>
+          <Link href="/ranking" className="btn-primary mt-6 inline-block">
+            Voltar aos rankings
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-[100dvh] bg-amber-50/40">
       <header className="bg-gradient-to-br from-amber-500 to-amber-700 px-5 pb-14 pt-6 text-white">
@@ -101,6 +122,12 @@ export function LeagueView({ leagueId, meId }: { leagueId: string; meId: string 
       </header>
 
       <div className="mx-auto -mt-8 max-w-3xl px-4 pb-24">
+        {league.status === "arquivado" && (
+          <div className="mb-4 rounded-2xl bg-red-100 px-4 py-3 text-sm text-red-800">
+            🏁 Esta liga está <strong>arquivada</strong>. Ela não aparece para os jogadores e não
+            aceita novos jogos ou agendamentos.
+          </div>
+        )}
         {notMember && (
           <div className="mb-4 flex items-center justify-between rounded-2xl bg-amber-100 px-4 py-3 text-sm text-amber-800">
             <span>Você não é membro desta liga.</span>
@@ -311,6 +338,7 @@ function RoundMatchCard({
 }) {
   const [open, setOpen] = useState(false);
   const played = m.status === "jogado";
+  const canceled = m.status === "cancelado";
   const isCuringa = m.result_type === "curinga";
   const gamesLabel = formatGames(m.games);
 
@@ -355,7 +383,7 @@ function RoundMatchCard({
         </div>
       )}
 
-      {canReport && !played && (
+      {canReport && !played && !canceled && (
         <div className="mt-2">
           {open ? (
             <ResultForm
@@ -735,6 +763,103 @@ function About({
 
       {(league.is_owner || league.is_organizer) && (
         <MembersPanel league={league} onChange={onChange} />
+      )}
+
+      {(league.is_owner || league.is_organizer) && league.status === "ativo" && (
+        <DeleteLeague league={league} />
+      )}
+    </div>
+  );
+}
+
+/* ---------------- Excluir (arquivar) liga ---------------- */
+function DeleteLeague({ league }: { league: LeagueDetail }) {
+  const supabase = createClient();
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [confirmName, setConfirmName] = useState("");
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function doDelete() {
+    setBusy(true);
+    setErr(null);
+    const { error } = await supabase.rpc("delete_league", {
+      p_league_id: league.id,
+      p_reason: reason || null,
+      p_confirm_name: confirmName,
+    });
+    setBusy(false);
+    if (error) return setErr(error.message);
+    router.push("/ranking");
+  }
+
+  return (
+    <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4">
+      <div className="text-sm font-bold text-red-700">Zona de risco</div>
+      <p className="mt-1 text-xs text-red-600">
+        Excluir arquiva a liga: some para os jogadores, cancela jogos futuros e libera as quadras.
+        Resultados e histórico são preservados.
+      </p>
+      {!open ? (
+        <button
+          onClick={() => {
+            setOpen(true);
+            setConfirmName("");
+            setReason("");
+            setErr(null);
+          }}
+          className="mt-3 rounded-full bg-red-600 px-4 py-2 text-xs font-semibold text-white"
+        >
+          Excluir liga
+        </button>
+      ) : (
+        <div className="mt-3 space-y-3 rounded-xl bg-white p-3">
+          <div className="text-sm">
+            <div className="font-bold text-slate-800">{league.name}</div>
+            <div className="text-xs text-slate-500">
+              Clube: {league.club_name ?? "—"}
+            </div>
+          </div>
+          <div className="rounded-lg bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
+            ⚠️ Todos os jogos futuros serão cancelados e as reservas de quadra liberadas. Esta ação
+            encerra a competição.
+          </div>
+          <div>
+            <label className="label">Motivo (opcional)</label>
+            <input
+              className="input"
+              placeholder="Ex.: fim da temporada"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="label">
+              Digite <span className="font-bold">{league.name}</span> para confirmar
+            </label>
+            <input
+              className="input"
+              value={confirmName}
+              onChange={(e) => setConfirmName(e.target.value)}
+              placeholder={league.name}
+            />
+          </div>
+          {err && <p className="text-xs text-red-600">{err}</p>}
+          <div className="flex gap-2">
+            <button
+              onClick={doDelete}
+              disabled={busy || confirmName.trim() !== league.name}
+              className="rounded-full bg-red-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-40"
+            >
+              {busy ? "Excluindo..." : "Confirmar exclusão"}
+            </button>
+            <button onClick={() => setOpen(false)} className="btn-ghost text-xs">
+              Cancelar
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
