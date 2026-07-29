@@ -140,7 +140,7 @@ export function LeagueView({ leagueId, meId }: { leagueId: string; meId: string 
           {tab === "minha_pontuacao" && <MyPoints leagueId={leagueId} />}
           {tab === "quadras" && <CourtsConfig leagueId={leagueId} />}
           {tab === "regras" && <Rules />}
-          {tab === "sobre" && <About league={league} onChange={loadLeague} />}
+          {tab === "sobre" && <About league={league} meId={meId} onChange={loadLeague} />}
         </div>
       </div>
     </main>
@@ -663,7 +663,15 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 /* ---------------- Sobre ---------------- */
-function About({ league, onChange }: { league: LeagueDetail; onChange: () => void }) {
+function About({
+  league,
+  meId,
+  onChange,
+}: {
+  league: LeagueDetail;
+  meId: string;
+  onChange: () => void;
+}) {
   const supabase = createClient();
   const [edit, setEdit] = useState(false);
   const [desc, setDesc] = useState(league.description || "");
@@ -704,6 +712,7 @@ function About({ league, onChange }: { league: LeagueDetail; onChange: () => voi
 
   return (
     <div className="space-y-3 text-sm text-slate-700">
+      {league.am_member && <SelfStatus leagueId={league.id} meId={meId} />}
       <div>
         <span className="font-semibold">Organizador:</span> {league.organizer_name}
       </div>
@@ -726,6 +735,72 @@ function About({ league, onChange }: { league: LeagueDetail; onChange: () => voi
 
       {(league.is_owner || league.is_organizer) && (
         <MembersPanel league={league} onChange={onChange} />
+      )}
+    </div>
+  );
+}
+
+/* ---------------- Minha situação (auto-serviço do jogador) ---------------- */
+const SELF_STATUS_OPTIONS: MemberStatus[] = ["ativo", "licenciado", "desativado"];
+
+function SelfStatus({ leagueId, meId }: { leagueId: string; meId: string }) {
+  const supabase = createClient();
+  const [status, setStatus] = useState<MemberStatus | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    const { data } = await supabase.rpc("get_my_member_status", { p_league_id: leagueId });
+    setStatus((data as unknown as MemberStatus | null) ?? null);
+  }, [supabase, leagueId]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function change(s: MemberStatus) {
+    setBusy(true);
+    await supabase.rpc("set_member_status", {
+      p_league_id: leagueId,
+      p_player_id: meId,
+      p_status: s,
+    });
+    setBusy(false);
+    load();
+  }
+
+  if (!status) return null;
+
+  return (
+    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+      <div className="text-sm font-bold text-slate-700">Minha situação</div>
+      {status === "suspenso" ? (
+        <div className="mt-2 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-700">
+          🚫 Você está <strong>suspenso</strong> pela organização. Fale com o organizador para
+          voltar a participar.
+        </div>
+      ) : (
+        <>
+          <p className="mt-1 text-xs text-slate-500">
+            Defina sua disponibilidade. Licenciado te tira das rodadas sem perder o histórico;
+            desativado encerra sua participação.
+          </p>
+          <div className="mt-2 flex gap-1.5">
+            {SELF_STATUS_OPTIONS.map((s) => (
+              <button
+                key={s}
+                onClick={() => change(s)}
+                disabled={busy || status === s}
+                className={`flex-1 rounded-full px-2 py-1.5 text-xs font-semibold ${
+                  status === s
+                    ? "bg-amber-600 text-white"
+                    : "bg-white text-slate-600 ring-1 ring-slate-200"
+                }`}
+              >
+                {MEMBER_STATUS_LABELS[s]}
+              </button>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );
