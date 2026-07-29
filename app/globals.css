@@ -60,6 +60,15 @@ body {
   }
 }
 
+/* Safe area superior (notch / Dynamic Island / barra de status) —
+   env() vira 0 fora do PWA, mantendo o mesmo espaçamento no navegador. */
+.pt-safe {
+  padding-top: calc(env(safe-area-inset-top) + 1.5rem);
+}
+.top-safe {
+  padding-top: calc(env(safe-area-inset-top) + 0.75rem);
+}
+
 /* Scrollbar discreta */
 ::-webkit-scrollbar {
   width: 8px;

@@ -106,7 +106,7 @@ export function RankingHub({ isOwner }: { isOwner: boolean }) {
 
   return (
     <main className="min-h-[100dvh] bg-amber-50/40">
-      <header className="bg-gradient-to-br from-amber-500 to-amber-700 px-5 pb-10 pt-6 text-white">
+      <header className="pt-safe bg-gradient-to-br from-amber-500 to-amber-700 px-5 pb-10 text-white">
         <div className="mx-auto flex max-w-2xl items-center justify-between">
           <div className="flex items-center gap-3">
             <button onClick={() => router.back()} className="text-sm text-amber-50">
