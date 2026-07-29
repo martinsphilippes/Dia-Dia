@@ -1,0 +1,19 @@
+{
+  "name": "dia-dia",
+  "version": "1.0.0",
+  "description": "Ferramenta web (100% no navegador, sem servidor) que converte o texto de uma conversa de WhatsApp em uma planilha Excel.",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://local_proxy@127.0.0.1:41729/git/martinsphilippes/Dia-Dia"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "firebase": "^12.16.0"
+  }
+}
