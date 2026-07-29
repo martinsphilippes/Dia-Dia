@@ -5,10 +5,13 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { IconBack } from "@/components/icons";
 import { cx, initials } from "@/lib/utils";
+import { ResultForm, formatGames } from "@/components/ranking/result-form";
 import {
   LeagueDetail,
   LeagueMember,
   MATCH_STATUS_LABELS,
+  MEMBER_STATUS_LABELS,
+  MemberStatus,
   MyLeagueMatch,
   MyPointsRow,
   RoundInfo,
@@ -300,27 +303,24 @@ function RoundMatchCard({
   canReport: boolean;
   onReported: () => void;
 }) {
-  const supabase = createClient();
   const [open, setOpen] = useState(false);
-  const [sc, setSc] = useState("");
-  const [sd, setSd] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
   const played = m.status === "jogado";
+  const isCuringa = m.result_type === "curinga";
+  const gamesLabel = formatGames(m.games);
 
-  async function report(e: React.FormEvent) {
-    e.preventDefault();
-    setErr(null);
-    setBusy(true);
-    const { error } = await supabase.rpc("report_match_result", {
-      p_match_id: m.match_id,
-      p_sets_challenger: Number(sc),
-      p_sets_challenged: Number(sd),
-    });
-    setBusy(false);
-    if (error) return setErr(error.message);
-    setOpen(false);
-    onReported();
+  if (isCuringa) {
+    return (
+      <li className="rounded-2xl border border-amber-100 bg-amber-50 p-3">
+        <div className="flex items-center justify-between gap-2">
+          <PlayerMini name={m.challenger_name} avatar={m.challenger_avatar} />
+          <div className="shrink-0 text-center">
+            <div className="text-sm font-extrabold text-amber-700">CURINGA</div>
+            <div className="text-[10px] uppercase text-amber-500">+6 pts</div>
+          </div>
+          <div className="flex-1" />
+        </div>
+      </li>
+    );
   }
 
   return (
@@ -336,7 +336,7 @@ function RoundMatchCard({
             <div className="text-xs font-semibold text-slate-400">vs</div>
           )}
           <div className="text-[10px] uppercase text-slate-400">
-            {MATCH_STATUS_LABELS[m.status]}
+            {m.result_type === "wo" ? "WO" : MATCH_STATUS_LABELS[m.status]}
           </div>
         </div>
         <PlayerMini name={m.challenged_name} avatar={m.challenged_avatar} right />
@@ -344,47 +344,30 @@ function RoundMatchCard({
 
       {played && (
         <div className="mt-1 text-center text-[11px] text-amber-700">
+          {gamesLabel && <span className="mr-2 text-slate-400">{gamesLabel}</span>}
           {Number(m.challenger_points)} × {Number(m.challenged_points)} pts
         </div>
       )}
 
       {canReport && !played && (
-        <div className="mt-2 text-center">
+        <div className="mt-2">
           {open ? (
-            <form onSubmit={report} className="flex flex-col items-center gap-2">
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-slate-500">{m.challenger_name.split(" ")[0]}</span>
-                <input
-                  className="input w-14 text-center"
-                  inputMode="numeric"
-                  value={sc}
-                  onChange={(e) => setSc(e.target.value)}
-                  placeholder="2"
-                />
-                <span className="text-slate-400">x</span>
-                <input
-                  className="input w-14 text-center"
-                  inputMode="numeric"
-                  value={sd}
-                  onChange={(e) => setSd(e.target.value)}
-                  placeholder="1"
-                />
-                <span className="text-slate-500">{m.challenged_name.split(" ")[0]}</span>
-              </div>
-              {err && <p className="text-xs text-red-600">{err}</p>}
-              <div className="flex gap-2">
-                <button className="btn-primary text-xs" disabled={busy}>
-                  {busy ? "Salvando..." : "Salvar placar"}
-                </button>
-                <button type="button" className="btn-ghost text-xs" onClick={() => setOpen(false)}>
-                  Cancelar
-                </button>
-              </div>
-            </form>
+            <ResultForm
+              matchId={m.match_id}
+              leftName={m.challenger_name}
+              rightName={m.challenged_name}
+              onDone={() => {
+                setOpen(false);
+                onReported();
+              }}
+              onCancel={() => setOpen(false)}
+            />
           ) : (
-            <button onClick={() => setOpen(true)} className="text-xs font-semibold text-amber-700">
-              Lançar resultado
-            </button>
+            <div className="text-center">
+              <button onClick={() => setOpen(true)} className="text-xs font-semibold text-amber-700">
+                Lançar resultado
+              </button>
+            </div>
           )}
         </div>
       )}
@@ -457,11 +440,10 @@ function MyMatchCard({ m, onChange }: { m: MyLeagueMatch; onChange: () => void }
   const [mode, setMode] = useState<null | "agendar" | "resultado">(null);
   const [when, setWhen] = useState("");
   const [place, setPlace] = useState(m.location || "");
-  const [mySets, setMySets] = useState("");
-  const [oppSets, setOppSets] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const played = m.status === "jogado";
+  const gamesLabel = formatGames(m.games);
 
   async function schedule(e: React.FormEvent) {
     e.preventDefault();
@@ -471,23 +453,6 @@ function MyMatchCard({ m, onChange }: { m: MyLeagueMatch; onChange: () => void }
       p_match_id: m.match_id,
       p_when: when ? new Date(when).toISOString() : null,
       p_location: place || null,
-    });
-    setBusy(false);
-    if (error) return setErr(error.message);
-    setMode(null);
-    onChange();
-  }
-
-  async function report(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setErr(null);
-    const mine = Number(mySets);
-    const opp = Number(oppSets);
-    const { error } = await supabase.rpc("report_match_result", {
-      p_match_id: m.match_id,
-      p_sets_challenger: m.am_challenger ? mine : opp,
-      p_sets_challenged: m.am_challenger ? opp : mine,
     });
     setBusy(false);
     if (error) return setErr(error.message);
@@ -522,6 +487,7 @@ function MyMatchCard({ m, onChange }: { m: MyLeagueMatch; onChange: () => void }
         {played ? (
           <div className="text-right">
             <div className="text-lg font-extrabold">{m.sets_me}<span className="mx-0.5 text-slate-300">x</span>{m.sets_opp}</div>
+            {gamesLabel && <div className="text-[10px] text-slate-400">{gamesLabel}</div>}
             <div className="text-[11px] font-semibold text-amber-700">+{Number(m.my_points)} pts</div>
           </div>
         ) : (
@@ -574,20 +540,18 @@ function MyMatchCard({ m, onChange }: { m: MyLeagueMatch; onChange: () => void }
           )}
 
           {mode === "resultado" && (
-            <form onSubmit={report} className="w-full">
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-slate-500">Você</span>
-                <input className="input w-14 text-center" inputMode="numeric" value={mySets} onChange={(e) => setMySets(e.target.value)} placeholder="2" />
-                <span className="text-slate-400">x</span>
-                <input className="input w-14 text-center" inputMode="numeric" value={oppSets} onChange={(e) => setOppSets(e.target.value)} placeholder="1" />
-                <span className="truncate text-slate-500">{m.opponent_name.split(" ")[0]}</span>
-              </div>
-              {err && <p className="mt-1 text-xs text-red-600">{err}</p>}
-              <div className="mt-2 flex gap-2">
-                <button className="btn-primary text-xs" disabled={busy}>Salvar placar</button>
-                <button type="button" className="btn-ghost text-xs" onClick={() => setMode(null)}>Cancelar</button>
-              </div>
-            </form>
+            <div className="w-full">
+              <ResultForm
+                matchId={m.match_id}
+                leftName={m.am_challenger ? "Você" : m.opponent_name}
+                rightName={m.am_challenger ? m.opponent_name : "Você"}
+                onDone={() => {
+                  setMode(null);
+                  onChange();
+                }}
+                onCancel={() => setMode(null)}
+              />
+            </div>
           )}
         </div>
       )}
@@ -648,36 +612,56 @@ function Rules() {
   return (
     <div className="prose-sm space-y-4 text-sm text-slate-700">
       <Section title="Como funciona">
-        Todo mundo joga com regularidade e <strong>cada partida vale pontos</strong> —
-        não é mata-mata. A cada rodada você tem um confronto sorteado contra alguém
-        de nível parecido no ranking.
+        Cada partida vale pontos — não é mata-mata. A cada rodada o sistema sorteia
+        um confronto contra alguém próximo de você na classificação. O
+        <strong> desafiante</strong> é sempre quem está mais abaixo no ranking.
       </Section>
-      <Section title="Pontuação (soma das últimas 10 rodadas)">
-        Sua nota no ranking é a <strong>soma dos seus resultados nas últimas 10
-        rodadas</strong>. Ao entrar a 11ª, a mais antiga sai — igual ao modelo do
-        circuito profissional. Pontos por partida (melhor de 3 sets):
-        <ul className="mt-2 list-disc pl-5">
-          <li>Desafiante vence por 2x0: <strong>10</strong> pontos</li>
-          <li>Desafiante vence por 2x1: <strong>8</strong> pontos</li>
-          <li>Desafiado vence por 2x0: <strong>9</strong> pontos</li>
-          <li>Desafiado vence por 2x1: <strong>7</strong> pontos</li>
-          <li>Quem perde levando 2x1 (ganhou 1 set): <strong>4</strong> pontos</li>
-          <li>Quem perde por 2x0: <strong>1</strong> ponto</li>
+      <Section title="Pontuação — soma das últimas 10 rodadas">
+        Sua nota é a <strong>soma dos seus últimos 10 resultados</strong>. Ao entrar a
+        11ª rodada, a mais antiga sai — igual ao circuito da ATP.
+        <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+          <div className="rounded-xl bg-slate-50 p-2">
+            <div className="font-bold text-slate-700">Desafiante vence</div>
+            <div>2x0 → <strong>10</strong> · 2x1 → <strong>8</strong></div>
+            <div className="mt-1 font-bold text-slate-700">Desafiante perde</div>
+            <div>2x0 → <strong>2</strong> · 2x1 → <strong>4</strong></div>
+          </div>
+          <div className="rounded-xl bg-slate-50 p-2">
+            <div className="font-bold text-slate-700">Desafiado vence</div>
+            <div>2x0 → <strong>9</strong> · 2x1 → <strong>7</strong></div>
+            <div className="mt-1 font-bold text-slate-700">Desafiado perde</div>
+            <div>2x0 → <strong>1</strong> · 2x1 → <strong>3</strong></div>
+          </div>
+        </div>
+      </Section>
+      <Section title="Placar e sets">
+        Ao lançar o resultado, informe os <strong>games de cada set</strong>. Um set
+        vai até <strong>6 games</strong> (com 2 de vantagem); em <strong>5-5</strong>
+        vai a 7; em <strong>6-6</strong> joga-se o <strong>tie-break</strong> (7-6). No
+        <strong> pró-set</strong>, vence quem fizer mais games e pontua como um 2x1.
+      </Section>
+      <Section title="Bônus">
+        Se o perdedor fizer no máximo <strong>2 games</strong> na partida, o vencedor
+        ganha <strong>+3 pontos</strong> de bônus (válido só na rodada atual).
+      </Section>
+      <Section title="WO e Curinga">
+        No WO, o vencedor recebe <strong>6 pontos</strong> e o perdedor não pontua.
+        Se a classe tiver número ímpar de jogadores, o pior colocado enfrenta o
+        <strong> CURINGA</strong> e recebe <strong>6 pontos</strong> na rodada.
+      </Section>
+      <Section title="Situação do jogador">
+        <ul className="list-disc pl-5">
+          <li><strong>Ativo:</strong> entra normalmente no sorteio.</li>
+          <li><strong>Licenciado:</strong> fica de fora das rodadas até voltar a ativo.</li>
+          <li><strong>Suspenso:</strong> retirado das rodadas e não pontua.</li>
+          <li><strong>Desativado:</strong> saída do ranking.</li>
         </ul>
+        O organizador altera a situação de cada jogador no painel da aba <em>Sobre</em>.
       </Section>
       <Section title="Marcação dos jogos">
-        Quem está melhor colocado (o desafiante) combina o jogo com o adversário —
-        use o botão de WhatsApp na aba <em>Jogos Marcados</em>. Definam data, hora e
-        local. Depois de jogar, qualquer um dos dois lança o placar no app.
-      </Section>
-      <Section title="Sorteio das rodadas">
-        O organizador gera cada rodada, e o sistema <strong>sorteia os confrontos
-        priorizando jogadores próximos na classificação</strong>. Havendo número
-        ímpar, um jogador folga na rodada.
-      </Section>
-      <Section title="Boa convivência">
-        Jogue com regularidade, respeite os horários combinados e o adversário
-        dentro e fora da quadra. É competição, mas é diversão. 🎾
+        Combine o jogo com o adversário pelo WhatsApp na aba <em>Jogos Marcados</em>.
+        Depois de jogar, qualquer um dos dois lança o placar. Jogo sem resultado
+        informado não pontua para ninguém.
       </Section>
     </div>
   );
@@ -754,13 +738,17 @@ function About({ league, onChange }: { league: LeagueDetail; onChange: () => voi
         </button>
       )}
 
-      {league.is_owner && <OwnerOrganizerPanel league={league} onChange={onChange} />}
+      {(league.is_owner || league.is_organizer) && (
+        <MembersPanel league={league} onChange={onChange} />
+      )}
     </div>
   );
 }
 
-/* ---------------- Painel do dono: definir organizador ---------------- */
-function OwnerOrganizerPanel({
+/* ---------------- Painel de membros: status + organizador ---------------- */
+const STATUS_OPTIONS: MemberStatus[] = ["ativo", "licenciado", "suspenso", "desativado"];
+
+function MembersPanel({
   league,
   onChange,
 }: {
@@ -791,6 +779,18 @@ function OwnerOrganizerPanel({
     onChange();
   }
 
+  async function setStatus(playerId: string, status: MemberStatus) {
+    setBusy(true);
+    setMsg(null);
+    await supabase.rpc("set_member_status", {
+      p_league_id: league.id,
+      p_player_id: playerId,
+      p_status: status,
+    });
+    setBusy(false);
+    await load();
+  }
+
   async function addByEmail(e: React.FormEvent) {
     e.preventDefault();
     if (!email.trim()) return;
@@ -809,31 +809,33 @@ function OwnerOrganizerPanel({
   return (
     <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
       <div className="flex items-center gap-2 text-sm font-bold text-amber-800">
-        👑 Painel do dono — organizador da liga
+        🛠️ Painel do organizador — jogadores e status
       </div>
       <p className="mt-1 text-xs text-amber-700">
-        Escolha quem organiza esta liga. O organizador pode gerar rodadas e lançar
-        resultados; o restante são operadores/jogadores.
+        Só jogadores <strong>Ativos</strong> entram no sorteio. Licenciados, suspensos e
+        desativados ficam fora das rodadas.
       </p>
 
-      <form onSubmit={addByEmail} className="mt-3 flex gap-2">
-        <input
-          className="input flex-1"
-          placeholder="Adicionar login por email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-        <button className="btn-ghost text-sm">Add</button>
-      </form>
+      {league.is_owner && (
+        <form onSubmit={addByEmail} className="mt-3 flex gap-2">
+          <input
+            className="input flex-1"
+            placeholder="Adicionar login por email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <button className="btn-ghost text-sm">Add</button>
+        </form>
+      )}
       {msg && <p className="mt-2 text-xs text-red-600">{msg}</p>}
 
       <ul className="mt-3 space-y-1.5">
         {(members ?? []).map((m) => (
           <li
             key={m.player_id}
-            className="flex items-center justify-between rounded-xl bg-white px-3 py-2 text-sm"
+            className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white px-3 py-2 text-sm"
           >
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 items-center gap-2">
               {m.avatar_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={m.avatar_url} alt="" className="h-7 w-7 rounded-full object-cover" />
@@ -842,21 +844,36 @@ function OwnerOrganizerPanel({
                   {initials(m.name)}
                 </div>
               )}
-              <span>{m.name}</span>
+              <span className="truncate">{m.name}</span>
+              {m.is_organizer && (
+                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                  organizador
+                </span>
+              )}
             </div>
-            {m.is_organizer ? (
-              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">
-                organizador
-              </span>
-            ) : (
-              <button
-                onClick={() => makeOrganizer(m.player_id)}
+            <div className="flex items-center gap-2">
+              <select
+                value={m.status}
                 disabled={busy}
-                className="text-xs font-semibold text-amber-700"
+                onChange={(e) => setStatus(m.player_id, e.target.value as MemberStatus)}
+                className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs"
               >
-                Tornar organizador
-              </button>
-            )}
+                {STATUS_OPTIONS.map((s) => (
+                  <option key={s} value={s}>
+                    {MEMBER_STATUS_LABELS[s]}
+                  </option>
+                ))}
+              </select>
+              {league.is_owner && !m.is_organizer && (
+                <button
+                  onClick={() => makeOrganizer(m.player_id)}
+                  disabled={busy}
+                  className="text-xs font-semibold text-amber-700"
+                >
+                  Organizador
+                </button>
+              )}
+            </div>
           </li>
         ))}
       </ul>

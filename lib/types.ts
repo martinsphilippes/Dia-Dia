@@ -151,12 +151,26 @@ export type LeagueDetail = {
   current_round_number: number | null;
 };
 
+export type MemberStatus = "ativo" | "licenciado" | "suspenso" | "desativado";
+
+export const MEMBER_STATUS_LABELS: Record<MemberStatus, string> = {
+  ativo: "Ativo",
+  licenciado: "Licenciado",
+  suspenso: "Suspenso",
+  desativado: "Desativado",
+};
+
 export type LeagueMember = {
   player_id: string;
   name: string;
   avatar_url: string | null;
   is_organizer: boolean;
+  status: MemberStatus;
 };
+
+export type ResultType = "normal" | "proset" | "wo" | "curinga";
+
+export type SetGame = { c: number; d: number };
 
 export type Standing = {
   pos: number;
@@ -188,10 +202,12 @@ export type RoundMatch = {
   challenged_name: string;
   challenged_avatar: string | null;
   status: MatchStatus;
+  result_type: ResultType;
   scheduled_at: string | null;
   location: string | null;
   sets_challenger: number | null;
   sets_challenged: number | null;
+  games: SetGame[] | null;
   challenger_points: number;
   challenged_points: number;
 };
@@ -205,10 +221,12 @@ export type MyLeagueMatch = {
   opponent_phone: string | null;
   am_challenger: boolean;
   status: MatchStatus;
+  result_type: ResultType;
   scheduled_at: string | null;
   location: string | null;
   sets_me: number | null;
   sets_opp: number | null;
+  games: SetGame[] | null;
   my_points: number;
 };
 
