@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { IconBack } from "@/components/icons";
 import {
   LeagueSummary,
+  MyClub,
   OpenLeague,
   OpenTournament,
   TOURNAMENT_STATUS_LABELS,
@@ -28,17 +29,31 @@ export function RankingHub({ isOwner }: { isOwner: boolean }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // clube ao qual o ranking pertence
+  const [clubs, setClubs] = useState<MyClub[]>([]);
+  const [clubMode, setClubMode] = useState<"existing" | "new">("new");
+  const [clubId, setClubId] = useState("");
+  const [newClub, setNewClub] = useState("");
+  const [bookingReq, setBookingReq] = useState(true);
+
   const load = useCallback(async () => {
-    const [{ data: m }, { data: o }, { data: mt }, { data: ot }] = await Promise.all([
+    const [{ data: m }, { data: o }, { data: mt }, { data: ot }, { data: cl }] = await Promise.all([
       supabase.rpc("get_my_leagues"),
       supabase.rpc("get_open_leagues"),
       supabase.rpc("get_my_tournaments"),
       supabase.rpc("get_open_tournaments"),
+      supabase.rpc("get_my_clubs"),
     ]);
     setMine((m as unknown as LeagueSummary[]) ?? []);
     setOpen((o as unknown as OpenLeague[]) ?? []);
     setMyTours((mt as unknown as TournamentSummary[]) ?? []);
     setOpenTours((ot as unknown as OpenTournament[]) ?? []);
+    const myClubs = (cl as unknown as MyClub[]) ?? [];
+    setClubs(myClubs);
+    if (myClubs.length > 0) {
+      setClubMode("existing");
+      setClubId((cur) => cur || myClubs[0].id);
+    }
     setLoading(false);
   }, [supabase]);
 
@@ -52,8 +67,16 @@ export function RankingHub({ isOwner }: { isOwner: boolean }) {
     setBusy(true);
     setError(null);
     if (creating === "league") {
+      const useExisting = clubMode === "existing" && clubId;
+      if (!useExisting && newClub.trim().length < 2) {
+        setBusy(false);
+        return setError("Escolha ou crie um clube para o ranking.");
+      }
       const { data, error } = await supabase.rpc("create_league", {
         p_name: name.trim(),
+        p_club_id: useExisting ? clubId : null,
+        p_new_club_name: useExisting ? null : newClub.trim(),
+        p_booking_required: bookingReq,
         p_city: city.trim() || null,
       });
       setBusy(false);
@@ -157,19 +180,67 @@ export function RankingHub({ isOwner }: { isOwner: boolean }) {
 
           {isOwner &&
             (creating === "league" ? (
-              <CreateForm
-                label="liga"
-                name={name}
-                city={city}
-                setName={setName}
-                setCity={setCity}
-                busy={busy}
-                error={error}
-                onSubmit={submitCreate}
-                onCancel={() => setCreating(null)}
-              />
+              <form onSubmit={submitCreate} className="mt-4 space-y-3 rounded-2xl bg-amber-50 p-4">
+                <div>
+                  <label className="label">Clube (dono do ranking)</label>
+                  {clubs.length > 0 && (
+                    <div className="mb-2 flex gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setClubMode("existing")}
+                        className={`flex-1 rounded-full px-2 py-1.5 text-xs font-semibold ${clubMode === "existing" ? "bg-amber-600 text-white" : "bg-white text-slate-600 ring-1 ring-slate-200"}`}
+                      >
+                        Clube existente
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setClubMode("new")}
+                        className={`flex-1 rounded-full px-2 py-1.5 text-xs font-semibold ${clubMode === "new" ? "bg-amber-600 text-white" : "bg-white text-slate-600 ring-1 ring-slate-200"}`}
+                      >
+                        Novo clube
+                      </button>
+                    </div>
+                  )}
+                  {clubMode === "existing" && clubs.length > 0 ? (
+                    <select className="input" value={clubId} onChange={(e) => setClubId(e.target.value)}>
+                      {clubs.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} ({c.court_count} quadra{c.court_count === 1 ? "" : "s"})
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div className="space-y-2">
+                      <input
+                        className="input"
+                        placeholder="Nome do clube"
+                        value={newClub}
+                        onChange={(e) => setNewClub(e.target.value)}
+                      />
+                      <label className="flex items-center gap-2 text-xs text-slate-600">
+                        <input type="checkbox" checked={bookingReq} onChange={(e) => setBookingReq(e.target.checked)} />
+                        Reserva de quadra obrigatória
+                      </label>
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <label className="label">Nome do ranking</label>
+                  <input className="input" placeholder="Ex.: Ranking Masculino" value={name} onChange={(e) => setName(e.target.value)} />
+                </div>
+                <input className="input" placeholder="Cidade (opcional)" value={city} onChange={(e) => setCity(e.target.value)} />
+                {error && <p className="text-sm text-red-600">{error}</p>}
+                <div className="flex gap-2">
+                  <button type="submit" className="btn-primary flex-1" disabled={busy}>
+                    {busy ? "Criando..." : "Criar ranking"}
+                  </button>
+                  <button type="button" className="btn-ghost" onClick={() => setCreating(null)}>
+                    Cancelar
+                  </button>
+                </div>
+              </form>
             ) : (
-              <DashedButton onClick={() => { setCreating("league"); setName(""); setCity(""); setError(null); }}>
+              <DashedButton onClick={() => { setCreating("league"); setName(""); setCity(""); setNewClub(""); setError(null); }}>
                 + Criar uma liga (ranking contínuo)
               </DashedButton>
             ))}

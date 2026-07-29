@@ -6,85 +6,191 @@ import {
   CourtRow,
   DayBooking,
   LeagueSchedule,
+  MyClub,
   WEEKDAY_LABELS,
 } from "@/lib/types";
 
-type Club = {
-  club_id: string;
-  club_name: string;
-  booking_required: boolean;
-  courts: { court_id: string; court_name: string }[];
-};
-
-function groupClubs(rows: CourtRow[]): Club[] {
-  const map = new Map<string, Club>();
-  for (const r of rows) {
-    if (!map.has(r.club_id)) {
-      map.set(r.club_id, {
-        club_id: r.club_id,
-        club_name: r.club_name,
-        booking_required: r.booking_required,
-        courts: [],
-      });
-    }
-    if (r.court_id && r.court_name) {
-      map.get(r.club_id)!.courts.push({ court_id: r.court_id, court_name: r.court_name });
-    }
-  }
-  return [...map.values()];
-}
-
+/**
+ * Aba "Quadras": mostra e configura o ÚNICO clube dono deste ranking.
+ * O ranking herda quadras, horários e regras desse clube; não é possível
+ * usar quadras de outro clube.
+ */
 export function CourtsConfig({ leagueId }: { leagueId: string }) {
   const supabase = createClient();
   const [sched, setSched] = useState<LeagueSchedule | null>(null);
-  const [clubs, setClubs] = useState<Club[] | null>(null);
+  const [courts, setCourts] = useState<{ court_id: string; court_name: string }[]>([]);
+  const [bookingRequired, setBookingRequired] = useState(true);
 
   const load = useCallback(async () => {
     const [{ data: s }, { data: c }] = await Promise.all([
       supabase.rpc("get_league_schedule", { p_league_id: leagueId }),
       supabase.rpc("get_league_courts", { p_league_id: leagueId }),
     ]);
-    setSched((s as unknown as LeagueSchedule[])?.[0] ?? null);
-    setClubs(groupClubs((c as unknown as CourtRow[]) ?? []));
+    const schedule = (s as unknown as LeagueSchedule[])?.[0] ?? null;
+    setSched(schedule);
+    const rows = (c as unknown as CourtRow[]) ?? [];
+    setCourts(rows.filter((r) => r.court_id).map((r) => ({ court_id: r.court_id!, court_name: r.court_name! })));
+    if (rows[0]) setBookingRequired(rows[0].booking_required);
   }, [supabase, leagueId]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  if (!sched || !clubs)
-    return <p className="py-6 text-center text-sm text-slate-400">Carregando...</p>;
+  if (!sched) return <p className="py-6 text-center text-sm text-slate-400">Carregando...</p>;
+
+  // Ranking ainda sem clube vinculado
+  if (!sched.club_id) {
+    return sched.is_manager === false ? (
+      <p className="py-6 text-center text-sm text-slate-500">
+        Este ranking ainda não está vinculado a um clube.
+      </p>
+    ) : (
+      <BindClub leagueId={leagueId} onChange={load} />
+    );
+  }
 
   const manager = sched.is_manager;
 
   return (
     <div className="space-y-5">
-      {manager && <ScheduleEditor leagueId={leagueId} sched={sched} onChange={load} />}
-      {!manager && (
+      <div className="rounded-2xl bg-amber-50 p-3">
+        <div className="text-xs font-semibold uppercase text-amber-600">Clube dono do ranking</div>
+        <div className="text-lg font-extrabold text-amber-800">🎾 {sched.club_name}</div>
+        <div className="mt-1 text-xs text-amber-700">
+          O ranking usa exclusivamente as quadras e a agenda deste clube.
+        </div>
+      </div>
+
+      {manager ? (
+        <>
+          <ScheduleEditor clubId={sched.club_id} sched={sched} onChange={load} />
+          <CourtsManager
+            clubId={sched.club_id}
+            courts={courts}
+            bookingRequired={bookingRequired}
+            onChange={load}
+          />
+        </>
+      ) : (
         <div className="rounded-2xl bg-slate-50 p-3 text-sm text-slate-600">
-          <div className="font-semibold text-slate-700">Agenda do ranking</div>
-          <div className="mt-1 text-xs">
+          <div className="text-xs">
             Dias: {sched.match_days.map((d) => WEEKDAY_LABELS[d]).join(", ")} · Horário{" "}
-            {sched.slot_start.slice(0, 5)}–{sched.slot_end.slice(0, 5)} · jogos de{" "}
-            {sched.slot_minutes} min
+            {sched.slot_start.slice(0, 5)}–{sched.slot_end.slice(0, 5)} · jogos de {sched.slot_minutes} min ·{" "}
+            {bookingRequired ? "reserva obrigatória" : "sem reserva"}
           </div>
+          <ul className="mt-2 flex flex-wrap gap-1.5">
+            {courts.map((c) => (
+              <li key={c.court_id} className="rounded-full bg-white px-2.5 py-1 text-xs text-slate-600 ring-1 ring-slate-200">
+                {c.court_name}
+              </li>
+            ))}
+            {courts.length === 0 && <span className="text-xs text-slate-400">Sem quadras cadastradas.</span>}
+          </ul>
         </div>
       )}
-
-      <ClubsManager leagueId={leagueId} clubs={clubs} manager={manager} onChange={load} />
 
       <DayAgenda leagueId={leagueId} />
     </div>
   );
 }
 
-/* ---------------- Editor de agenda (dias/horários) ---------------- */
+/* ---------------- Vincular o ranking a um clube ---------------- */
+function BindClub({ leagueId, onChange }: { leagueId: string; onChange: () => void }) {
+  const supabase = createClient();
+  const [clubs, setClubs] = useState<MyClub[]>([]);
+  const [mode, setMode] = useState<"existing" | "new">("new");
+  const [clubId, setClubId] = useState("");
+  const [name, setName] = useState("");
+  const [req, setReq] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.rpc("get_my_clubs").then(({ data }) => {
+      const cs = (data as unknown as MyClub[]) ?? [];
+      setClubs(cs);
+      if (cs.length > 0) {
+        setMode("existing");
+        setClubId(cs[0].id);
+      }
+    });
+  }, [supabase]);
+
+  async function save() {
+    const useExisting = mode === "existing" && clubId;
+    if (!useExisting && name.trim().length < 2) return setErr("Escolha ou crie um clube.");
+    setBusy(true);
+    setErr(null);
+    const { error } = await supabase.rpc("set_league_club", {
+      p_league_id: leagueId,
+      p_club_id: useExisting ? clubId : null,
+      p_new_club_name: useExisting ? null : name.trim(),
+      p_booking_required: req,
+    });
+    setBusy(false);
+    if (error) return setErr(error.message);
+    onChange();
+  }
+
+  return (
+    <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+      <div className="text-sm font-bold text-amber-800">Vincular a um clube</div>
+      <p className="mt-1 text-xs text-amber-700">
+        Todo ranking pertence a um clube. Escolha um existente ou crie um novo.
+      </p>
+      {clubs.length > 0 && (
+        <div className="mt-3 flex gap-1.5">
+          <button
+            type="button"
+            onClick={() => setMode("existing")}
+            className={`flex-1 rounded-full px-2 py-1.5 text-xs font-semibold ${mode === "existing" ? "bg-amber-600 text-white" : "bg-white text-slate-600 ring-1 ring-slate-200"}`}
+          >
+            Clube existente
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("new")}
+            className={`flex-1 rounded-full px-2 py-1.5 text-xs font-semibold ${mode === "new" ? "bg-amber-600 text-white" : "bg-white text-slate-600 ring-1 ring-slate-200"}`}
+          >
+            Novo clube
+          </button>
+        </div>
+      )}
+      <div className="mt-2">
+        {mode === "existing" && clubs.length > 0 ? (
+          <select className="input" value={clubId} onChange={(e) => setClubId(e.target.value)}>
+            {clubs.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <div className="space-y-2">
+            <input className="input" placeholder="Nome do clube" value={name} onChange={(e) => setName(e.target.value)} />
+            <label className="flex items-center gap-2 text-xs text-slate-600">
+              <input type="checkbox" checked={req} onChange={(e) => setReq(e.target.checked)} />
+              Reserva de quadra obrigatória
+            </label>
+          </div>
+        )}
+      </div>
+      {err && <p className="mt-2 text-xs text-red-600">{err}</p>}
+      <button onClick={save} disabled={busy} className="btn-primary mt-3 text-xs">
+        {busy ? "Salvando..." : "Vincular clube"}
+      </button>
+    </div>
+  );
+}
+
+/* ---------------- Editor de agenda do clube ---------------- */
 function ScheduleEditor({
-  leagueId,
+  clubId,
   sched,
   onChange,
 }: {
-  leagueId: string;
+  clubId: string;
   sched: LeagueSchedule;
   onChange: () => void;
 }) {
@@ -105,8 +211,8 @@ function ScheduleEditor({
     setBusy(true);
     setErr(null);
     setOk(false);
-    const { error } = await supabase.rpc("set_league_schedule", {
-      p_league_id: leagueId,
+    const { error } = await supabase.rpc("set_club_schedule", {
+      p_club_id: clubId,
       p_days: days,
       p_start: start,
       p_end: end,
@@ -120,7 +226,7 @@ function ScheduleEditor({
 
   return (
     <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-      <div className="text-sm font-bold text-amber-800">🗓️ Agenda do ranking</div>
+      <div className="text-sm font-bold text-amber-800">🗓️ Agenda do clube</div>
       <p className="mt-1 text-xs text-amber-700">Dias e horários em que os jogos podem acontecer.</p>
 
       <div className="mt-3 flex flex-wrap gap-1.5">
@@ -149,12 +255,7 @@ function ScheduleEditor({
         </div>
         <div>
           <label className="label">Min/jogo</label>
-          <input
-            className="input"
-            inputMode="numeric"
-            value={mins}
-            onChange={(e) => setMins(e.target.value)}
-          />
+          <input className="input" inputMode="numeric" value={mins} onChange={(e) => setMins(e.target.value)} />
         </div>
       </div>
 
@@ -169,87 +270,29 @@ function ScheduleEditor({
   );
 }
 
-/* ---------------- Clubes e quadras ---------------- */
-function ClubsManager({
-  leagueId,
-  clubs,
-  manager,
+/* ---------------- Quadras do clube ---------------- */
+function CourtsManager({
+  clubId,
+  courts,
+  bookingRequired,
   onChange,
 }: {
-  leagueId: string;
-  clubs: Club[];
-  manager: boolean;
+  clubId: string;
+  courts: { court_id: string; court_name: string }[];
+  bookingRequired: boolean;
   onChange: () => void;
 }) {
   const supabase = createClient();
   const [name, setName] = useState("");
-  const [required, setRequired] = useState(true);
-  const [busy, setBusy] = useState(false);
-
-  async function addClub(e: React.FormEvent) {
-    e.preventDefault();
-    if (!name.trim()) return;
-    setBusy(true);
-    await supabase.rpc("create_club", {
-      p_league_id: leagueId,
-      p_name: name.trim(),
-      p_booking_required: required,
-    });
-    setBusy(false);
-    setName("");
-    setRequired(true);
-    onChange();
-  }
-
-  return (
-    <div>
-      <div className="mb-2 text-sm font-bold text-slate-700">🎾 Clubes e quadras</div>
-
-      {manager && (
-        <form onSubmit={addClub} className="mb-3 space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-3">
-          <input
-            className="input"
-            placeholder="Nome do clube"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-          <label className="flex items-center gap-2 text-xs text-slate-600">
-            <input type="checkbox" checked={required} onChange={(e) => setRequired(e.target.checked)} />
-            Reserva obrigatória (bloqueia o horário da quadra)
-          </label>
-          <button className="btn-primary text-xs" disabled={busy}>
-            {busy ? "..." : "Adicionar clube"}
-          </button>
-        </form>
-      )}
-
-      {clubs.length === 0 ? (
-        <p className="py-4 text-center text-sm text-slate-400">
-          Nenhum clube cadastrado{manager ? " — adicione acima." : "."}
-        </p>
-      ) : (
-        <ul className="space-y-3">
-          {clubs.map((c) => (
-            <ClubCard key={c.club_id} club={c} manager={manager} onChange={onChange} />
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-function ClubCard({ club, manager, onChange }: { club: Club; manager: boolean; onChange: () => void }) {
-  const supabase = createClient();
-  const [courtName, setCourtName] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function addCourt(e: React.FormEvent) {
     e.preventDefault();
-    if (!courtName.trim()) return;
+    if (!name.trim()) return;
     setBusy(true);
-    await supabase.rpc("add_court", { p_club_id: club.club_id, p_name: courtName.trim() });
+    await supabase.rpc("add_court", { p_club_id: clubId, p_name: name.trim() });
     setBusy(false);
-    setCourtName("");
+    setName("");
     onChange();
   }
   async function delCourt(id: string) {
@@ -257,72 +300,43 @@ function ClubCard({ club, manager, onChange }: { club: Club; manager: boolean; o
     onChange();
   }
   async function toggleRequired() {
-    await supabase.rpc("update_club", {
-      p_club_id: club.club_id,
-      p_booking_required: !club.booking_required,
-    });
-    onChange();
-  }
-  async function delClub() {
-    if (!confirm(`Excluir o clube "${club.club_name}" e suas quadras?`)) return;
-    await supabase.rpc("delete_club", { p_club_id: club.club_id });
+    await supabase.rpc("update_club", { p_club_id: clubId, p_booking_required: !bookingRequired });
     onChange();
   }
 
   return (
-    <li className="rounded-2xl border border-slate-100 bg-white p-3">
+    <div className="rounded-2xl border border-slate-100 bg-white p-4">
       <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0">
-          <div className="truncate font-semibold text-slate-800">{club.club_name}</div>
-          <div className="text-[11px] font-semibold uppercase text-slate-400">
-            {club.booking_required ? "reserva obrigatória" : "sem reserva"}
-          </div>
-        </div>
-        {manager && (
-          <div className="flex shrink-0 items-center gap-2">
-            <button onClick={toggleRequired} className="text-[11px] font-semibold text-amber-700">
-              {club.booking_required ? "Tornar opcional" : "Exigir reserva"}
-            </button>
-            <button onClick={delClub} className="text-[11px] font-semibold text-red-500">
-              Excluir
-            </button>
-          </div>
-        )}
+        <div className="text-sm font-bold text-slate-700">🎾 Quadras</div>
+        <button onClick={toggleRequired} className="text-[11px] font-semibold text-amber-700">
+          {bookingRequired ? "Reserva obrigatória ✓" : "Sem reserva obrigatória"}
+        </button>
       </div>
 
       <ul className="mt-2 flex flex-wrap gap-1.5">
-        {club.courts.map((ct) => (
-          <li
-            key={ct.court_id}
-            className="flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600"
-          >
+        {courts.map((ct) => (
+          <li key={ct.court_id} className="flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600">
             {ct.court_name}
-            {manager && (
-              <button onClick={() => delCourt(ct.court_id)} className="text-slate-400 hover:text-red-500">
-                ✕
-              </button>
-            )}
+            <button onClick={() => delCourt(ct.court_id)} className="text-slate-400 hover:text-red-500">
+              ✕
+            </button>
           </li>
         ))}
-        {club.courts.length === 0 && (
-          <span className="text-xs text-slate-400">Sem quadras</span>
-        )}
+        {courts.length === 0 && <span className="text-xs text-slate-400">Sem quadras.</span>}
       </ul>
 
-      {manager && (
-        <form onSubmit={addCourt} className="mt-2 flex gap-2">
-          <input
-            className="input flex-1 text-sm"
-            placeholder="Nome da quadra (ex.: Quadra 02)"
-            value={courtName}
-            onChange={(e) => setCourtName(e.target.value)}
-          />
-          <button className="btn-ghost text-xs" disabled={busy}>
-            Add
-          </button>
-        </form>
-      )}
-    </li>
+      <form onSubmit={addCourt} className="mt-2 flex gap-2">
+        <input
+          className="input flex-1 text-sm"
+          placeholder="Nome da quadra (ex.: Quadra 02)"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+        <button className="btn-ghost text-xs" disabled={busy}>
+          Add
+        </button>
+      </form>
+    </div>
   );
 }
 
@@ -346,12 +360,7 @@ function DayAgenda({ leagueId }: { leagueId: string }) {
     <div className="rounded-2xl border border-slate-100 bg-white p-3">
       <div className="flex items-center justify-between gap-2">
         <div className="text-sm font-bold text-slate-700">📅 Reservas do dia</div>
-        <input
-          type="date"
-          className="input w-auto text-sm"
-          value={day}
-          onChange={(e) => setDay(e.target.value)}
-        />
+        <input type="date" className="input w-auto text-sm" value={day} onChange={(e) => setDay(e.target.value)} />
       </div>
       {!rows ? (
         <p className="py-3 text-center text-xs text-slate-400">Carregando...</p>
@@ -360,10 +369,7 @@ function DayAgenda({ leagueId }: { leagueId: string }) {
       ) : (
         <ul className="mt-2 space-y-1.5">
           {rows.map((r, i) => (
-            <li
-              key={i}
-              className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2 text-sm"
-            >
+            <li key={i} className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2 text-sm">
               <div className="min-w-0">
                 <div className="truncate font-medium text-slate-700">
                   {r.club_name} · {r.court_name}
@@ -373,10 +379,7 @@ function DayAgenda({ leagueId }: { leagueId: string }) {
                 </div>
               </div>
               <div className="shrink-0 text-xs font-semibold text-amber-700">
-                {new Date(r.starts_at).toLocaleTimeString("pt-BR", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
+                {new Date(r.starts_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
               </div>
             </li>
           ))}

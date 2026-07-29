@@ -92,6 +92,7 @@ export function LeagueView({ leagueId, meId }: { leagueId: string; meId: string 
         <div className="mx-auto mt-5 max-w-3xl">
           <h1 className="text-2xl font-extrabold">🏆 {league.name}</h1>
           <p className="mt-1 text-sm text-amber-50">
+            {league.club_name ? `🎾 ${league.club_name} · ` : ""}
             {league.city ? `${league.city} · ` : ""}
             {league.member_count} jogador{league.member_count === 1 ? "" : "es"}
             {league.current_round_number ? ` · rodada ${league.current_round_number}` : ""}

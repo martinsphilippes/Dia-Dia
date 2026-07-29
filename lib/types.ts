@@ -149,6 +149,15 @@ export type LeagueDetail = {
   member_count: number;
   current_round_id: string | null;
   current_round_number: number | null;
+  club_id: string | null;
+  club_name: string | null;
+};
+
+export type MyClub = {
+  id: string;
+  name: string;
+  booking_required: boolean;
+  court_count: number;
 };
 
 export type MemberStatus = "ativo" | "licenciado" | "suspenso" | "desativado";
@@ -174,6 +183,8 @@ export type SetGame = { c: number; d: number };
 
 /* ---------------- Quadras / agenda ---------------- */
 export type LeagueSchedule = {
+  club_id: string | null;
+  club_name: string | null;
   match_days: number[]; // 0=Dom .. 6=Sáb
   slot_start: string; // "07:00:00"
   slot_end: string; // "22:00:00"
