@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/client";
 import { IconBack } from "@/components/icons";
 import { cx, initials } from "@/lib/utils";
 import { ResultForm, formatGames } from "@/components/ranking/result-form";
+import { CourtScheduler } from "@/components/ranking/court-scheduler";
+import { CourtsConfig } from "@/components/ranking/courts-config";
 import {
   LeagueDetail,
   LeagueMember,
@@ -25,6 +27,7 @@ type Tab =
   | "jogos_marcados"
   | "meus_jogos"
   | "minha_pontuacao"
+  | "quadras"
   | "regras"
   | "sobre";
 
@@ -34,6 +37,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "jogos_marcados", label: "Jogos Marcados" },
   { key: "meus_jogos", label: "Meus Jogos" },
   { key: "minha_pontuacao", label: "Minha Pontuação" },
+  { key: "quadras", label: "Quadras" },
   { key: "regras", label: "Regras" },
   { key: "sobre", label: "Sobre" },
 ];
@@ -133,6 +137,7 @@ export function LeagueView({ leagueId, meId }: { leagueId: string; meId: string 
           )}
           {tab === "meus_jogos" && <MyMatches leagueId={leagueId} meId={meId} />}
           {tab === "minha_pontuacao" && <MyPoints leagueId={leagueId} />}
+          {tab === "quadras" && <CourtsConfig leagueId={leagueId} />}
           {tab === "regras" && <Rules />}
           {tab === "sobre" && <About league={league} onChange={loadLeague} />}
         </div>
@@ -429,36 +434,24 @@ function MyMatches({
   return (
     <ul className="space-y-3">
       {list.map((m) => (
-        <MyMatchCard key={m.match_id} m={m} onChange={load} />
+        <MyMatchCard key={m.match_id} m={m} leagueId={leagueId} onChange={load} />
       ))}
     </ul>
   );
 }
 
-function MyMatchCard({ m, onChange }: { m: MyLeagueMatch; onChange: () => void }) {
-  const supabase = createClient();
+function MyMatchCard({
+  m,
+  leagueId,
+  onChange,
+}: {
+  m: MyLeagueMatch;
+  leagueId: string;
+  onChange: () => void;
+}) {
   const [mode, setMode] = useState<null | "agendar" | "resultado">(null);
-  const [when, setWhen] = useState("");
-  const [place, setPlace] = useState(m.location || "");
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
   const played = m.status === "jogado";
   const gamesLabel = formatGames(m.games);
-
-  async function schedule(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setErr(null);
-    const { error } = await supabase.rpc("schedule_match", {
-      p_match_id: m.match_id,
-      p_when: when ? new Date(when).toISOString() : null,
-      p_location: place || null,
-    });
-    setBusy(false);
-    if (error) return setErr(error.message);
-    setMode(null);
-    onChange();
-  }
 
   return (
     <li className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
@@ -518,25 +511,17 @@ function MyMatchCard({ m, onChange }: { m: MyLeagueMatch; onChange: () => void }
           )}
 
           {mode === "agendar" && (
-            <form onSubmit={schedule} className="w-full space-y-2">
-              <input
-                type="datetime-local"
-                className="input"
-                value={when}
-                onChange={(e) => setWhen(e.target.value)}
+            <div className="w-full">
+              <CourtScheduler
+                leagueId={leagueId}
+                matchId={m.match_id}
+                onDone={() => {
+                  setMode(null);
+                  onChange();
+                }}
+                onCancel={() => setMode(null)}
               />
-              <input
-                className="input"
-                placeholder="Local (quadra, clube...)"
-                value={place}
-                onChange={(e) => setPlace(e.target.value)}
-              />
-              {err && <p className="text-xs text-red-600">{err}</p>}
-              <div className="flex gap-2">
-                <button className="btn-primary text-xs" disabled={busy}>Salvar</button>
-                <button type="button" className="btn-ghost text-xs" onClick={() => setMode(null)}>Cancelar</button>
-              </div>
-            </form>
+            </div>
           )}
 
           {mode === "resultado" && (

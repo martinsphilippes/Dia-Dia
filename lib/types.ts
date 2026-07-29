@@ -172,6 +172,45 @@ export type ResultType = "normal" | "proset" | "wo" | "curinga";
 
 export type SetGame = { c: number; d: number };
 
+/* ---------------- Quadras / agenda ---------------- */
+export type LeagueSchedule = {
+  match_days: number[]; // 0=Dom .. 6=Sáb
+  slot_start: string; // "07:00:00"
+  slot_end: string; // "22:00:00"
+  slot_minutes: number;
+  has_courts: boolean;
+  is_manager: boolean;
+};
+
+export type CourtRow = {
+  club_id: string;
+  club_name: string;
+  booking_required: boolean;
+  court_id: string | null;
+  court_name: string | null;
+};
+
+export type CourtAvailability = {
+  club_id: string;
+  club_name: string;
+  booking_required: boolean;
+  court_id: string;
+  court_name: string;
+  is_free: boolean;
+};
+
+export type DayBooking = {
+  court_id: string;
+  court_name: string;
+  club_name: string;
+  starts_at: string;
+  ends_at: string;
+  challenger_name: string | null;
+  challenged_name: string | null;
+};
+
+export const WEEKDAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
 export type Standing = {
   pos: number;
   player_id: string;
