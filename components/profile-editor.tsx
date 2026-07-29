@@ -9,11 +9,15 @@ import {
   DominantHand,
   FORMAT_LABELS,
   HAND_LABELS,
+  MP_MODE_LABELS,
+  MP_PREFS,
+  MpMode,
   PlayFormat,
   Profile,
   RADIUS_OPTIONS,
   SKILL_CLASSES,
   SkillClass,
+  WEEKDAY_LABELS,
 } from "@/lib/types";
 import { cx, initials } from "@/lib/utils";
 
@@ -58,6 +62,27 @@ export function ProfileEditor({
   const [availability, setAvailability] = useState<string[]>(profile.availability || []);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(profile.avatar_url);
   const [radius, setRadius] = useState<number>(profile.search_radius_km || 20);
+
+  // Participação no MatchPoint
+  const [mpMode, setMpMode] = useState<MpMode>(profile.mp_mode ?? "available");
+  const [mpActive, setMpActive] = useState<boolean>(profile.mp_active ?? true);
+  const [mpPrice, setMpPrice] = useState<string>(
+    profile.mp_price_cents ? String(profile.mp_price_cents / 100) : ""
+  );
+  const [mpPriceUnit, setMpPriceUnit] = useState<string>(profile.mp_price_unit ?? "hora");
+  const [mpClubs, setMpClubs] = useState<string>(profile.mp_clubs ?? "");
+  const [mpDays, setMpDays] = useState<number[]>(profile.mp_days ?? []);
+  const [mpTimeStart, setMpTimeStart] = useState<string>((profile.mp_time_start ?? "").slice(0, 5));
+  const [mpTimeEnd, setMpTimeEnd] = useState<string>((profile.mp_time_end ?? "").slice(0, 5));
+  const [mpNotes, setMpNotes] = useState<string>(profile.mp_notes ?? "");
+  const [mpPrefs, setMpPrefs] = useState<string[]>(profile.mp_prefs ?? []);
+
+  function toggleMpDay(d: number) {
+    setMpDays((p) => (p.includes(d) ? p.filter((x) => x !== d) : [...p, d].sort()));
+  }
+  function toggleMpPref(p: string) {
+    setMpPrefs((prev) => (prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]));
+  }
 
   // Localização
   const [lat, setLat] = useState<number | null>(profile.latitude);
@@ -168,6 +193,17 @@ export function ProfileEditor({
           city: cityLabel,
           search_radius_km: radius,
           onboarded: true,
+          mp_mode: mpMode,
+          mp_active: mpActive,
+          mp_price_cents:
+            mpMode === "sparring" && mpPrice ? Math.round(parseFloat(mpPrice.replace(",", ".")) * 100) : null,
+          mp_price_unit: mpPriceUnit,
+          mp_clubs: mpClubs.trim() || null,
+          mp_days: mpDays,
+          mp_time_start: mpTimeStart || null,
+          mp_time_end: mpTimeEnd || null,
+          mp_notes: mpNotes.trim() || null,
+          mp_prefs: mpPrefs,
         })
         .eq("id", profile.id);
       if (upErr) throw upErr;
@@ -382,6 +418,138 @@ export function ProfileEditor({
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Participação no MatchPoint */}
+      <div className="rounded-2xl border border-court-200 bg-court-50/50 p-4">
+        <label className="label">🎾 Participação no MatchPoint</label>
+        <p className="mb-3 text-xs text-slate-500">
+          Escolha como quer aparecer para quem procura parceiro de tênis.
+        </p>
+        <div className="space-y-2">
+          {(["available", "sparring", "none"] as MpMode[]).map((m) => (
+            <button
+              type="button"
+              key={m}
+              onClick={() => setMpMode(m)}
+              className={cx(
+                "flex w-full items-center justify-between rounded-xl border p-3 text-left transition",
+                mpMode === m
+                  ? "border-court-500 bg-white ring-1 ring-court-300"
+                  : "border-slate-200 bg-white hover:border-slate-300"
+              )}
+            >
+              <div>
+                <div className="text-sm font-semibold">{MP_MODE_LABELS[m]}</div>
+                <div className="text-xs text-slate-500">
+                  {m === "available" && "Encontre parceiros para jogos casuais e treinos."}
+                  {m === "sparring" && "Ofereça treinos/partidas cobrando pelo seu tempo."}
+                  {m === "none" && "Não aparecer nas buscas do MatchPoint."}
+                </div>
+              </div>
+              <span className={cx("text-lg", mpMode === m ? "text-court-600" : "text-slate-300")}>
+                {mpMode === m ? "●" : "○"}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {mpMode !== "none" && (
+          <div className="mt-4 space-y-4">
+            <label className="flex items-center gap-2 text-sm text-slate-600">
+              <input type="checkbox" checked={mpActive} onChange={(e) => setMpActive(e.target.checked)} />
+              Disponível agora (desmarque para pausar temporariamente)
+            </label>
+
+            {mpMode === "sparring" && (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="label">Valor (R$)</label>
+                  <input
+                    className="input"
+                    inputMode="decimal"
+                    placeholder="120"
+                    value={mpPrice}
+                    onChange={(e) => setMpPrice(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="label">Por</label>
+                  <select className="input" value={mpPriceUnit} onChange={(e) => setMpPriceUnit(e.target.value)}>
+                    <option value="hora">Hora</option>
+                    <option value="partida">Partida</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            <div>
+              <label className="label">Clube(s) onde costuma jogar</label>
+              <input
+                className="input"
+                placeholder="Ex.: Clube Beira Rio, Praia Clube"
+                value={mpClubs}
+                onChange={(e) => setMpClubs(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="label">Dias disponíveis</label>
+              <div className="flex flex-wrap gap-1.5">
+                {WEEKDAY_LABELS.map((lbl, d) => (
+                  <button
+                    type="button"
+                    key={d}
+                    onClick={() => toggleMpDay(d)}
+                    className={cx("chip", mpDays.includes(d) ? "chip-on" : "chip-off")}
+                  >
+                    {lbl}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label">Das</label>
+                <input type="time" className="input" value={mpTimeStart} onChange={(e) => setMpTimeStart(e.target.value)} />
+              </div>
+              <div>
+                <label className="label">Até</label>
+                <input type="time" className="input" value={mpTimeEnd} onChange={(e) => setMpTimeEnd(e.target.value)} />
+              </div>
+            </div>
+
+            {mpMode === "available" && (
+              <div>
+                <label className="label">Preferências de jogo</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {MP_PREFS.map((p) => (
+                    <button
+                      type="button"
+                      key={p}
+                      onClick={() => toggleMpPref(p)}
+                      className={cx("chip capitalize", mpPrefs.includes(p) ? "chip-on" : "chip-off")}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div>
+              <label className="label">Observações</label>
+              <textarea
+                className="input min-h-[70px] resize-y"
+                maxLength={280}
+                placeholder={mpMode === "sparring" ? "Condições, experiência, o que inclui..." : "Algo que ajude a combinar o jogo..."}
+                value={mpNotes}
+                onChange={(e) => setMpNotes(e.target.value)}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Bio */}

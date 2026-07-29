@@ -41,14 +41,14 @@ export default async function HubPage() {
         <div className="mt-8 grid gap-4 sm:grid-cols-2">
           {/* MatchPoint */}
           <Link
-            href="/discover"
+            href="/matchpoint"
             className="group relative overflow-hidden rounded-3xl bg-white p-6 text-ink shadow-card transition hover:-translate-y-0.5"
           >
             <div className="text-5xl">🎾</div>
             <h2 className="mt-4 text-xl font-bold">MatchPoint</h2>
             <p className="mt-1 text-sm text-slate-600">
-              Ache parceiros de tênis por perto — em casa ou viajando. Deslize,
-              dê match e marque o jogo.
+              Ache sparrings e parceiros de tênis por perto — em casa ou
+              viajando. Busque, solicite e marque o jogo em minutos.
             </p>
             <span className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-court-700">
               Encontrar parceiros →

@@ -1,4 +1,73 @@
 export type PlayFormat = "simples" | "duplas" | "ambos";
+
+/* ---------------- MatchPoint (sparrings / jogadores disponíveis) ---------------- */
+export type MpMode = "none" | "available" | "sparring";
+
+export const MP_MODE_LABELS: Record<MpMode, string> = {
+  none: "Não participar",
+  available: "Jogador Disponível",
+  sparring: "Sparring Profissional",
+};
+
+export const MP_PREFS = ["treino", "amistoso", "simples", "duplas"];
+
+export type MpSearchRow = {
+  id: string;
+  name: string;
+  avatar_url: string | null;
+  city: string | null;
+  skill_class: SkillClass;
+  mp_mode: MpMode;
+  price_cents: number | null;
+  price_unit: string | null;
+  clubs: string | null;
+  notes: string | null;
+  mp_days: number[] | null;
+  time_start: string | null;
+  time_end: string | null;
+  prefs: string[] | null;
+  distance_km: number | null;
+  rating: number;
+  review_count: number;
+  matches_count: number;
+};
+
+export type MpProfile = MpSearchRow & { bio: string | null; phone: string | null };
+
+export type MpReview = {
+  rater_name: string;
+  rater_avatar: string | null;
+  stars: number;
+  comment: string | null;
+  created_at: string;
+};
+
+export type MpRequestDetail = {
+  id: string;
+  requester_id: string;
+  requester_name: string;
+  requester_avatar: string | null;
+  requester_phone: string | null;
+  city: string | null;
+  club: string | null;
+  desired_at: string | null;
+  level: number | null;
+  modality: string | null;
+  note: string | null;
+  status: string;
+  created_at: string;
+  is_mine: boolean;
+};
+
+export type AppNotification = {
+  id: string;
+  type: string;
+  title: string;
+  body: string | null;
+  link: string | null;
+  read: boolean;
+  created_at: string;
+};
 export type DominantHand = "destro" | "canhoto";
 export type SwipeDirection = "like" | "pass";
 
@@ -28,6 +97,17 @@ export type Profile = {
   updated_at: string;
   // Presente apenas quando vem de get_discovery_profiles
   distance_km?: number | null;
+  // Participação no MatchPoint
+  mp_mode?: MpMode;
+  mp_active?: boolean;
+  mp_price_cents?: number | null;
+  mp_price_unit?: string | null;
+  mp_clubs?: string | null;
+  mp_days?: number[] | null;
+  mp_time_start?: string | null;
+  mp_time_end?: string | null;
+  mp_notes?: string | null;
+  mp_prefs?: string[] | null;
 };
 
 // Linhas retornadas pelas RPCs de admin
