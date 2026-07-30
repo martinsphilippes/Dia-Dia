@@ -74,6 +74,8 @@ export interface Transaction {
   /** For transfers: the destination account. */
   transferAccountId?: string | null;
   installment?: Installment | null;
+  /** Groups the installments of a single purchase into one series. */
+  installmentGroupId?: string | null;
   tags?: string[];
   /** Id of the import batch that created this record (for undo/audit). */
   importBatchId?: string | null;

@@ -131,6 +131,9 @@ export async function commitImport(params: {
       const catId = t.categoryId
         ? (categoriesByName.get(normalizeHeader(t.categoryId)) ?? null)
         : null;
+      const transferId = t.transferAccountId
+        ? (accountsByName.get(normalizeHeader(t.transferAccountId)) ?? t.transferAccountId)
+        : null;
       const transaction: Transaction = {
         ownerId,
         date: t.date,
@@ -141,8 +144,9 @@ export async function commitImport(params: {
         accountId: accId ?? t.accountId,
         categoryId: catId,
         costCenterId: t.costCenterId ?? null,
-        transferAccountId: t.transferAccountId ?? null,
+        transferAccountId: transferId,
         installment: t.installment ?? null,
+        installmentGroupId: t.installmentGroupId ?? null,
         tags: t.tags,
         importBatchId: batchId,
         dedupHash: t.dedupHash,

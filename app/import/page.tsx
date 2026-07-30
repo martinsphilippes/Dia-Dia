@@ -5,9 +5,14 @@ import { readSpreadsheet } from "@/lib/import/reader";
 import {
   buildPreview,
   detectColumns,
+  type NormalizedRow,
   type PreviewResult,
   type RawRow,
 } from "@/lib/import/engine";
+import {
+  reconcileTransfers as mergeTransferPairs,
+  reconcileInstallments as groupInstallments,
+} from "@/lib/import/reconcile";
 import type { CanonicalField, ColumnMapping } from "@/types";
 import { LoginGate } from "@/components/LoginGate";
 import { useAuth } from "@/services/auth-context";
@@ -68,6 +73,8 @@ function Importer() {
   const [busy, setBusy] = useState(false);
   const [report, setReport] = useState<CommitReport | null>(null);
   const [reverted, setReverted] = useState(false);
+  const [mergeTransfers, setMergeTransfers] = useState(true);
+  const [groupParcels, setGroupParcels] = useState(true);
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     setError("");
@@ -108,6 +115,28 @@ function Importer() {
     return buildPreview(rows, mapping);
   }, [rows, mapping]);
 
+  // Reconciliation runs on the importable rows; each step is independently
+  // toggleable. Transfers are merged first, then installments are grouped.
+  const reconciled = useMemo(() => {
+    if (!preview) return null;
+    let rows = preview.importable;
+    let transfersFound = 0;
+    let installmentGroupsFound = 0;
+    if (mergeTransfers) {
+      const r = mergeTransferPairs(rows);
+      rows = r.rows;
+      transfersFound = r.transfersFound;
+    }
+    if (groupParcels) {
+      const r = groupInstallments(rows);
+      rows = r.rows;
+      installmentGroupsFound = r.installmentGroupsFound;
+    }
+    return { rows, transfersFound, installmentGroupsFound };
+  }, [preview, mergeTransfers, groupParcels]);
+
+  const rowsToImport: NormalizedRow[] = reconciled?.rows ?? preview?.importable ?? [];
+
   async function confirmImport() {
     if (!user || !preview) return;
     setBusy(true);
@@ -117,7 +146,7 @@ function Importer() {
         ownerId: user.uid,
         fileName,
         mapping,
-        importable: preview.importable,
+        importable: rowsToImport,
       });
       setReport(r);
     } catch (err) {
@@ -275,9 +304,46 @@ function Importer() {
             </tbody>
           </table>
 
+        </div>
+      )}
+
+      {reconciled && preview && !report && (
+        <div className="panel">
+          <h2>4. Reconciliação</h2>
+          <p>
+            <label>
+              <input
+                type="checkbox"
+                checked={mergeTransfers}
+                onChange={(e) => setMergeTransfers(e.target.checked)}
+              />{" "}
+              Unir pares de transferência (saída + entrada de mesmo valor em
+              contas diferentes, até 3 dias) em um único lançamento
+            </label>
+          </p>
+          <p>
+            <label>
+              <input
+                type="checkbox"
+                checked={groupParcels}
+                onChange={(e) => setGroupParcels(e.target.checked)}
+              />{" "}
+              Agrupar parcelamentos (1/12, 2/12, …) da mesma compra em uma série
+            </label>
+          </p>
+          <div className="stat-row">
+            <Stat n={reconciled.transfersFound} label="Transferências unidas" color="var(--accent)" />
+            <Stat
+              n={reconciled.installmentGroupsFound}
+              label="Séries de parcelas"
+              color="var(--accent)"
+            />
+            <Stat n={reconciled.rows.length} label="Lançamentos a gravar" color="var(--ok)" />
+          </div>
+
           <p style={{ marginTop: "1rem" }}>
-            <button onClick={confirmImport} disabled={busy || preview.importable.length === 0}>
-              {busy ? "Gravando…" : `Confirmar e gravar ${preview.importable.length} lançamento(s)`}
+            <button onClick={confirmImport} disabled={busy || reconciled.rows.length === 0}>
+              {busy ? "Gravando…" : `Confirmar e gravar ${reconciled.rows.length} lançamento(s)`}
             </button>
           </p>
         </div>
@@ -285,7 +351,7 @@ function Importer() {
 
       {report && (
         <div className="panel">
-          <h2>4. Importação concluída</h2>
+          <h2>5. Importação concluída</h2>
           {reverted ? (
             <p className="badge warn">
               Importação desfeita — {report.imported} lançamento(s) removido(s).

@@ -56,8 +56,10 @@ export function planCommit(
     seenInFile.add(t.dedupHash);
     toCreate.push(row);
 
-    const accName = t.accountId?.trim();
-    if (accName) {
+    // Both the source account and (for transfers) the destination account
+    // must exist before the transaction is written.
+    for (const accName of [t.accountId?.trim(), t.transferAccountId?.trim()]) {
+      if (!accName) continue;
       const norm = normalizeHeader(accName);
       if (!existingAccounts.has(norm) && !newAccounts.has(norm)) {
         newAccounts.set(norm, accName);
