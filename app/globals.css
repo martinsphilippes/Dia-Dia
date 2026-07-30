@@ -120,3 +120,16 @@ select {
   font-size: 1.6rem;
   font-weight: 700;
 }
+
+.bar-track {
+  background: var(--bg);
+  border-radius: 5px;
+  height: 14px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.bar-fill {
+  height: 100%;
+  border-radius: 5px 0 0 5px;
+  transition: width 0.2s;
+}

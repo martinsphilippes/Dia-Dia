@@ -27,6 +27,7 @@ export function AppHeader() {
       <Link href="/dashboard">Lançamentos</Link>
       <Link href="/accounts">Contas</Link>
       <Link href="/categories">Categorias</Link>
+      <Link href="/reports">Relatórios</Link>
       <Link href="/import">Importar</Link>
       <Link href="/history">Histórico</Link>
       <span style={{ flex: 1 }} />
