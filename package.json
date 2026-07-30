@@ -9,7 +9,10 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "deploy:rules": "firebase deploy --only firestore:rules",
+    "deploy:indexes": "firebase deploy --only firestore:indexes",
+    "deploy:firestore": "firebase deploy --only firestore:rules,firestore:indexes"
   },
   "repository": {
     "type": "git",
