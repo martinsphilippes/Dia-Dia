@@ -25,6 +25,7 @@ export function AppHeader() {
         WalletQuantso
       </Link>
       <Link href="/dashboard">Lançamentos</Link>
+      <Link href="/accounts">Contas</Link>
       <Link href="/import">Importar</Link>
       <Link href="/history">Histórico</Link>
       <span style={{ flex: 1 }} />

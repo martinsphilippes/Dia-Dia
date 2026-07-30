@@ -11,6 +11,7 @@ import {
   addDoc,
   getDoc,
   getDocs,
+  updateDoc,
   deleteDoc,
   query,
   where,
@@ -47,6 +48,17 @@ function mapDocs<T>(snap: {
 export async function listAccounts(ownerId: string): Promise<Account[]> {
   const q = query(collection(db, COLLECTIONS.accounts), where("ownerId", "==", ownerId));
   return mapDocs<Account>(await getDocs(q));
+}
+
+/** Create a new account. Returns its id. */
+export async function createAccount(account: Omit<Account, "id">): Promise<string> {
+  const ref = await addDoc(collection(db, COLLECTIONS.accounts), account);
+  return ref.id;
+}
+
+/** Update mutable fields of an account. */
+export function updateAccount(id: string, patch: Partial<Account>): Promise<void> {
+  return updateDoc(doc(db, COLLECTIONS.accounts, id), patch as DocumentData);
 }
 
 /** List the categories owned by a user. */
