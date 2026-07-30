@@ -12,6 +12,8 @@ import {
   type TransactionInput,
 } from "@/services/transactions";
 import { TransactionForm } from "@/components/TransactionForm";
+import { transactionsToCsv } from "@/lib/export/csv";
+import { downloadText } from "@/lib/export/download";
 import {
   filterTransactions,
   summarize,
@@ -89,6 +91,14 @@ function Dashboard() {
 
   const nameOfAccount = (id?: string | null) =>
     id ? (accountName.get(id) ?? id) : "—";
+
+  function exportCsv() {
+    const csv = transactionsToCsv(filtered, {
+      account: (id) => (id ? (accountName.get(id) ?? id) : ""),
+      category: (id) => (id ? (categoryName.get(id) ?? "") : ""),
+    });
+    downloadText("walletquantso-lancamentos.csv", csv);
+  }
 
   async function handleSubmit(input: TransactionInput) {
     if (!user) return;
@@ -223,6 +233,16 @@ function Dashboard() {
       </div>
 
       <div className="panel">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
+          <span className="muted">{filtered.length} lançamento(s)</span>
+          <button
+            style={{ background: "var(--border)" }}
+            onClick={exportCsv}
+            disabled={filtered.length === 0}
+          >
+            Exportar CSV
+          </button>
+        </div>
         {filtered.length === 0 ? (
           <p className="muted">Nenhum lançamento encontrado.</p>
         ) : (

@@ -11,6 +11,8 @@ import {
   totalsByMonth,
 } from "@/lib/reports/aggregate";
 import { DonutChart, CumulativeChart, PALETTE, type DonutItem } from "@/components/charts";
+import { toCsv, brNumber } from "@/lib/export/csv";
+import { downloadText } from "@/lib/export/download";
 import type { Category, Transaction, TransactionType } from "@/types";
 
 const brl = (n: number) =>
@@ -97,6 +99,17 @@ function Reports() {
     return top;
   }, [byCategory, catName]);
 
+  function exportCategoryCsv() {
+    const header = ["Categoria", "Valor", "Percentual"];
+    const rows = byCategory.map((c) => {
+      const name = c.categoryId ? (catName.get(c.categoryId) ?? "?") : "Sem categoria";
+      const pct = categoryTotal ? ((c.total / categoryTotal) * 100).toFixed(1) : "0";
+      return [name, brNumber(c.total), `${pct}%`];
+    });
+    const scope = month || "todos";
+    downloadText(`walletquantso-categorias-${type}-${scope}.csv`, toCsv([header, ...rows]));
+  }
+
   if (txs === null) {
     return (
       <div className="panel">
@@ -108,6 +121,19 @@ function Reports() {
   return (
     <>
       {error && <p className="badge err">{error}</p>}
+
+      <div style={{ display: "flex", gap: "0.75rem", marginBottom: "1rem", flexWrap: "wrap" }}>
+        <button style={{ background: "var(--border)" }} onClick={() => window.print()}>
+          Imprimir / salvar PDF
+        </button>
+        <button
+          style={{ background: "var(--border)" }}
+          onClick={exportCategoryCsv}
+          disabled={byCategory.length === 0}
+        >
+          Exportar CSV (categorias)
+        </button>
+      </div>
 
       <div className="panel">
         <h2>Receitas x Despesas por mês</h2>
