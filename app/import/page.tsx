@@ -9,6 +9,10 @@ import {
   type RawRow,
 } from "@/lib/import/engine";
 import type { CanonicalField, ColumnMapping } from "@/types";
+import { LoginGate } from "@/components/LoginGate";
+import { useAuth } from "@/services/auth-context";
+import { signOut } from "@/services/auth";
+import { commitImport, revertImport, type CommitReport } from "@/services/import";
 
 const FIELD_LABELS: Record<CanonicalField, string> = {
   date: "Data",
@@ -28,14 +32,47 @@ const FIELD_LABELS: Record<CanonicalField, string> = {
 const ALL_FIELDS = Object.keys(FIELD_LABELS) as CanonicalField[];
 
 export default function ImportPage() {
+  return (
+    <main className="container">
+      <Header />
+      <h1>Importar lançamentos</h1>
+      <LoginGate>
+        <Importer />
+      </LoginGate>
+    </main>
+  );
+}
+
+function Header() {
+  const { user } = useAuth();
+  if (!user) return null;
+  return (
+    <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem" }}>
+      <span className="muted" style={{ alignSelf: "center" }}>
+        {user.email}
+      </span>
+      <button style={{ background: "var(--border)" }} onClick={() => signOut()}>
+        Sair
+      </button>
+    </div>
+  );
+}
+
+function Importer() {
+  const { user } = useAuth();
   const [fileName, setFileName] = useState("");
   const [headers, setHeaders] = useState<string[]>([]);
   const [rows, setRows] = useState<RawRow[]>([]);
   const [mapping, setMapping] = useState<ColumnMapping>({});
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [report, setReport] = useState<CommitReport | null>(null);
+  const [reverted, setReverted] = useState(false);
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     setError("");
+    setReport(null);
+    setReverted(false);
     const file = e.target.files?.[0];
     if (!file) return;
     try {
@@ -56,7 +93,6 @@ export default function ImportPage() {
   function setColumn(header: string, field: CanonicalField | null) {
     setMapping((prev) => {
       const next: ColumnMapping = { ...prev };
-      // A canonical field can only be assigned to one header.
       if (field) {
         for (const h of Object.keys(next)) {
           if (next[h] === field) next[h] = null;
@@ -72,12 +108,45 @@ export default function ImportPage() {
     return buildPreview(rows, mapping);
   }, [rows, mapping]);
 
+  async function confirmImport() {
+    if (!user || !preview) return;
+    setBusy(true);
+    setError("");
+    try {
+      const r = await commitImport({
+        ownerId: user.uid,
+        fileName,
+        mapping,
+        importable: preview.importable,
+      });
+      setReport(r);
+    } catch (err) {
+      setError(`Falha ao gravar: ${(err as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function undo() {
+    if (!user || !report) return;
+    setBusy(true);
+    setError("");
+    try {
+      await revertImport(user.uid, report.batchId);
+      setReverted(true);
+    } catch (err) {
+      setError(`Falha ao desfazer: ${(err as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
-    <main className="container">
-      <h1>Importar lançamentos</h1>
+    <>
       <p className="muted">
-        Etapa de leitura e pré-visualização. Nada é gravado até você revisar e
-        confirmar (gravação, auditoria e desfazer entram na próxima etapa).
+        Leitura → mapeamento → pré-visualização → gravação auditável. Duplicidades
+        são detectadas contra o que já existe na sua conta; toda importação pode
+        ser desfeita.
       </p>
 
       <div className="panel">
@@ -91,12 +160,11 @@ export default function ImportPage() {
         {error && <p className="badge err">{error}</p>}
       </div>
 
-      {headers.length > 0 && (
+      {headers.length > 0 && !report && (
         <div className="panel">
           <h2>2. Mapeamento de colunas</h2>
           <p className="muted">
-            Detectamos automaticamente. Ajuste o que estiver errado — “Data”,
-            “Valor” e “Conta” são obrigatórios.
+            Detectamos automaticamente. “Data”, “Valor” e “Conta” são obrigatórios.
           </p>
           <table>
             <thead>
@@ -131,32 +199,18 @@ export default function ImportPage() {
         </div>
       )}
 
-      {preview && (
+      {preview && !report && (
         <div className="panel">
           <h2>3. Pré-visualização</h2>
           <div className="stat-row">
-            <div className="stat">
-              <div className="n">{preview.rows.length}</div>
-              <div className="muted">Total</div>
-            </div>
-            <div className="stat">
-              <div className="n" style={{ color: "var(--ok)" }}>
-                {preview.importable.length}
-              </div>
-              <div className="muted">Importáveis</div>
-            </div>
-            <div className="stat">
-              <div className="n" style={{ color: "var(--warn)" }}>
-                {preview.duplicatesInFile.length}
-              </div>
-              <div className="muted">Duplicadas no arquivo</div>
-            </div>
-            <div className="stat">
-              <div className="n" style={{ color: "var(--err)" }}>
-                {preview.rejected.length}
-              </div>
-              <div className="muted">Rejeitadas</div>
-            </div>
+            <Stat n={preview.rows.length} label="Total" />
+            <Stat n={preview.importable.length} label="Importáveis" color="var(--ok)" />
+            <Stat
+              n={preview.duplicatesInFile.length}
+              label="Duplicadas no arquivo"
+              color="var(--warn)"
+            />
+            <Stat n={preview.rejected.length} label="Rejeitadas" color="var(--err)" />
           </div>
 
           {preview.rejected.length > 0 && (
@@ -184,9 +238,6 @@ export default function ImportPage() {
                   ))}
                 </tbody>
               </table>
-              {preview.rejected.length > 50 && (
-                <p className="muted">… e mais {preview.rejected.length - 50} linha(s).</p>
-              )}
             </>
           )}
 
@@ -224,12 +275,67 @@ export default function ImportPage() {
             </tbody>
           </table>
 
-          <p className="muted" style={{ marginTop: "1rem" }}>
-            Próxima etapa: gravação em lote no Firestore com <code>importBatchId</code>,
-            registro de auditoria e botão de desfazer.
+          <p style={{ marginTop: "1rem" }}>
+            <button onClick={confirmImport} disabled={busy || preview.importable.length === 0}>
+              {busy ? "Gravando…" : `Confirmar e gravar ${preview.importable.length} lançamento(s)`}
+            </button>
           </p>
         </div>
       )}
-    </main>
+
+      {report && (
+        <div className="panel">
+          <h2>4. Importação concluída</h2>
+          {reverted ? (
+            <p className="badge warn">
+              Importação desfeita — {report.imported} lançamento(s) removido(s).
+            </p>
+          ) : (
+            <>
+              <div className="stat-row">
+                <Stat n={report.imported} label="Gravados" color="var(--ok)" />
+                <Stat
+                  n={report.skippedExistingDb}
+                  label="Ignorados (já existiam)"
+                  color="var(--warn)"
+                />
+                <Stat
+                  n={report.skippedInFile}
+                  label="Ignorados (dup. no arquivo)"
+                  color="var(--warn)"
+                />
+              </div>
+              {report.createdAccounts.length > 0 && (
+                <p className="muted">
+                  Contas criadas: {report.createdAccounts.join(", ")}
+                </p>
+              )}
+              {report.createdCategories.length > 0 && (
+                <p className="muted">
+                  Categorias criadas: {report.createdCategories.join(", ")}
+                </p>
+              )}
+              <p style={{ marginTop: "1rem" }}>
+                <button onClick={undo} disabled={busy} style={{ background: "var(--err)" }}>
+                  {busy ? "Desfazendo…" : "Desfazer esta importação"}
+                </button>
+              </p>
+            </>
+          )}
+          {error && <p className="badge err">{error}</p>}
+        </div>
+      )}
+    </>
+  );
+}
+
+function Stat({ n, label, color }: { n: number; label: string; color?: string }) {
+  return (
+    <div className="stat">
+      <div className="n" style={color ? { color } : undefined}>
+        {n}
+      </div>
+      <div className="muted">{label}</div>
+    </div>
   );
 }
