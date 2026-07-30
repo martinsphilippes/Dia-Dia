@@ -56,7 +56,7 @@ export function MpProfileDetail({ id }: { id: string }) {
         <div className="flex items-center gap-4">
           {p.avatar_url ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={p.avatar_url} alt="" className="h-20 w-20 rounded-2xl object-cover" />
+            <img src={p.avatar_url} alt="" className="h-20 w-20 rounded-2xl object-cover" loading="lazy" decoding="async" />
           ) : (
             <div className="grid h-20 w-20 place-items-center rounded-2xl bg-court-100 text-2xl font-bold text-court-700">
               {initials(p.name)}

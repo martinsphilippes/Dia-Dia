@@ -17,6 +17,7 @@ import {
   LeagueVisibility,
 } from "@/lib/types";
 import { initials } from "@/lib/utils";
+import { useDebouncedValue } from "@/lib/use-debounce";
 
 /* ============ Jogador: rankings próximos ============ */
 export function NearbyLeagues() {
@@ -26,17 +27,18 @@ export function NearbyLeagues() {
   const [city, setCity] = useState("");
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const dCity = useDebouncedValue(city, 400);
 
   const load = useCallback(async () => {
     setRows(null);
     const { data } = await supabase.rpc("discover_leagues", {
       p_lat: coords?.lat ?? null,
       p_lng: coords?.lng ?? null,
-      p_city: city.trim() || null,
+      p_city: dCity.trim() || null,
       p_max_km: maxKm === "" ? null : maxKm,
     });
     setRows((data as unknown as NearbyLeague[]) ?? []);
-  }, [supabase, coords, city, maxKm]);
+  }, [supabase, coords, dCity, maxKm]);
 
   useEffect(() => {
     load();
@@ -231,7 +233,7 @@ export function JoinRequestsPanel({ leagueId, onChange }: { leagueId: string; on
               <div className="flex items-center gap-2">
                 {r.avatar_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={r.avatar_url} alt="" className="h-9 w-9 rounded-full object-cover" />
+                  <img src={r.avatar_url} alt="" className="h-9 w-9 rounded-full object-cover" loading="lazy" decoding="async" />
                 ) : (
                   <div className="grid h-9 w-9 place-items-center rounded-full bg-amber-100 text-xs font-bold text-amber-700">
                     {initials(r.name)}
@@ -273,6 +275,7 @@ export function PossibleAthletesPanel({ leagueId }: { leagueId: string }) {
   const [levelMax, setLevelMax] = useState<number | "">("");
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const dCity = useDebouncedValue(city, 400);
 
   // convite por e-mail
   const [email, setEmail] = useState("");
@@ -283,14 +286,14 @@ export function PossibleAthletesPanel({ leagueId }: { leagueId: string }) {
     const { data } = await supabase.rpc("search_possible_athletes", {
       p_league_id: leagueId,
       p_max_km: maxKm === "" ? null : maxKm,
-      p_city: city.trim() || null,
+      p_city: dCity.trim() || null,
       p_state: null,
       p_level_min: null,
       p_level_max: levelMax === "" ? null : levelMax,
       p_club: null,
     });
     setRows((data as unknown as PossibleAthlete[]) ?? []);
-  }, [supabase, leagueId, maxKm, city, levelMax]);
+  }, [supabase, leagueId, maxKm, dCity, levelMax]);
 
   useEffect(() => {
     load();
@@ -369,7 +372,7 @@ export function PossibleAthletesPanel({ leagueId }: { leagueId: string }) {
             <li key={a.player_id} className="flex items-center gap-2 rounded-xl bg-white p-2.5">
               {a.avatar_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={a.avatar_url} alt="" className="h-9 w-9 rounded-full object-cover" />
+                <img src={a.avatar_url} alt="" className="h-9 w-9 rounded-full object-cover" loading="lazy" decoding="async" />
               ) : (
                 <div className="grid h-9 w-9 place-items-center rounded-full bg-amber-100 text-xs font-bold text-amber-700">
                   {initials(a.name)}

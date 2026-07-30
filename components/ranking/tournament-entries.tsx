@@ -43,10 +43,20 @@ export function TournamentEntries({
   }, [load]);
 
   async function togglePaid(e: TournamentEntryAdmin) {
+    const next = !e.paid;
+    // atualização otimista: reflete na hora (badge + resumo) e confirma no backend
+    setRows((cur) =>
+      (cur ?? []).map((r) => (r.entry_id === e.entry_id ? { ...r, paid: next } : r)),
+    );
     setBusy(e.entry_id);
-    await supabase.rpc("set_entry_paid", { p_entry_id: e.entry_id, p_paid: !e.paid });
-    await load();
+    const { error } = await supabase.rpc("set_entry_paid", { p_entry_id: e.entry_id, p_paid: next });
     setBusy(null);
+    if (error) {
+      // reverte em caso de falha
+      setRows((cur) =>
+        (cur ?? []).map((r) => (r.entry_id === e.entry_id ? { ...r, paid: !next } : r)),
+      );
+    }
   }
 
   async function saveFee() {
@@ -185,7 +195,7 @@ export function TournamentEntries({
             <li key={e.entry_id} className="flex items-center gap-3 py-2.5">
               {e.avatar_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={e.avatar_url} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />
+                <img src={e.avatar_url} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" loading="lazy" decoding="async" />
               ) : (
                 <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-amber-100 text-xs font-bold text-amber-700">
                   {initials(e.name)}

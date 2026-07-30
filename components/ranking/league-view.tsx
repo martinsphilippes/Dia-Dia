@@ -220,7 +220,7 @@ function Standings({ leagueId, meId }: { leagueId: string; meId: string }) {
                 <div className="flex items-center gap-2">
                   {r.avatar_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={r.avatar_url} alt="" className="h-8 w-8 rounded-full object-cover" />
+                    <img src={r.avatar_url} alt="" className="h-8 w-8 rounded-full object-cover" loading="lazy" decoding="async" />
                   ) : (
                     <div className="grid h-8 w-8 place-items-center rounded-full bg-amber-100 text-xs font-bold text-amber-700">
                       {initials(r.name)}
@@ -436,7 +436,7 @@ function PlayerMini({
     <div className={cx("flex min-w-0 flex-1 items-center gap-2", right && "flex-row-reverse text-right")}>
       {avatar ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={avatar} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" />
+        <img src={avatar} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" loading="lazy" decoding="async" />
       ) : (
         <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-amber-100 text-xs font-bold text-amber-700">
           {initials(name)}
@@ -501,7 +501,7 @@ function MyMatchCard({
       <div className="flex items-center gap-3">
         {m.opponent_avatar ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={m.opponent_avatar} alt="" className="h-11 w-11 rounded-full object-cover" />
+          <img src={m.opponent_avatar} alt="" className="h-11 w-11 rounded-full object-cover" loading="lazy" decoding="async" />
         ) : (
           <div className="grid h-11 w-11 place-items-center rounded-full bg-amber-100 text-sm font-bold text-amber-700">
             {initials(m.opponent_name)}
@@ -918,11 +918,20 @@ function StatusBadge({
 
   async function change(s: MemberStatus) {
     if (s === status) return setOpen(false);
-    setBusy(true);
-    await supabase.rpc("set_member_status", { p_league_id: leagueId, p_player_id: meId, p_status: s });
-    setBusy(false);
+    const prev = status;
+    // atualização otimista: reflete na hora e confirma no backend
+    setStatus(s);
     setOpen(false);
-    load();
+    setBusy(true);
+    const { error } = await supabase.rpc("set_member_status", {
+      p_league_id: leagueId,
+      p_player_id: meId,
+      p_status: s,
+    });
+    setBusy(false);
+    if (error) {
+      setStatus(prev); // reverte se falhar
+    }
   }
 
   return (
@@ -1067,7 +1076,7 @@ function MembersPanel({
             <div className="flex min-w-0 items-center gap-2">
               {m.avatar_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={m.avatar_url} alt="" className="h-7 w-7 rounded-full object-cover" />
+                <img src={m.avatar_url} alt="" className="h-7 w-7 rounded-full object-cover" loading="lazy" decoding="async" />
               ) : (
                 <div className="grid h-7 w-7 place-items-center rounded-full bg-amber-100 text-[10px] font-bold text-amber-700">
                   {initials(m.name)}

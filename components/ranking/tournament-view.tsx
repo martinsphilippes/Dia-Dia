@@ -376,7 +376,7 @@ function CategoryPanel({
                   <li key={e.player_id} className="flex items-center gap-2 text-sm">
                     {e.avatar_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={e.avatar_url} alt="" className="h-7 w-7 rounded-full object-cover" />
+                      <img src={e.avatar_url} alt="" className="h-7 w-7 rounded-full object-cover" loading="lazy" decoding="async" />
                     ) : (
                       <div className="grid h-7 w-7 place-items-center rounded-full bg-amber-100 text-[10px] font-bold text-amber-700">
                         {initials(e.name)}
@@ -601,7 +601,7 @@ function BracketSide({
       {name ? (
         avatar ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={avatar} alt="" className="h-7 w-7 rounded-full object-cover" />
+          <img src={avatar} alt="" className="h-7 w-7 rounded-full object-cover" loading="lazy" decoding="async" />
         ) : (
           <div className="grid h-7 w-7 place-items-center rounded-full bg-amber-100 text-[10px] font-bold text-amber-700">
             {initials(name)}

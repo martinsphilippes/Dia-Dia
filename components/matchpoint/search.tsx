@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { CLASS_LABELS, MpSearchRow, Profile, SKILL_CLASSES } from "@/lib/types";
 import { cx, initials } from "@/lib/utils";
+import { useDebouncedValue } from "@/lib/use-debounce";
 
 function brl(cents: number | null) {
   if (!cents) return null;
@@ -29,22 +30,31 @@ export function MatchPointSearch({ me }: { me: Profile }) {
   const [rows, setRows] = useState<MpSearchRow[] | null>(null);
   const [showReq, setShowReq] = useState(false);
 
+  // Campos de texto entram na busca só após parar de digitar (evita 1 chamada/tecla)
+  const dCity = useDebouncedValue(city, 400);
+  const dClub = useDebouncedValue(club, 400);
+  const dPrice = useDebouncedValue(priceMax, 400);
+  const reqId = useRef(0);
+
   const search = useCallback(async () => {
+    const myId = ++reqId.current;
     setRows(null);
     const { data } = await supabase.rpc("mp_search", {
       p_type: type || null,
-      p_city: city.trim() || null,
-      p_club: club.trim() || null,
+      p_city: dCity.trim() || null,
+      p_club: dClub.trim() || null,
       p_level_min: null,
       p_level_max: levelMax === "" ? null : levelMax,
       p_modality: modality || null,
-      p_price_max_cents: priceMax ? Math.round(parseFloat(priceMax.replace(",", ".")) * 100) : null,
+      p_price_max_cents: dPrice ? Math.round(parseFloat(dPrice.replace(",", ".")) * 100) : null,
       p_max_km: maxKm === "" ? null : maxKm,
       p_lat: me.latitude,
       p_lng: me.longitude,
     });
+    // ignora respostas antigas que chegarem depois de uma busca mais nova
+    if (myId !== reqId.current) return;
     setRows((data as unknown as MpSearchRow[]) ?? []);
-  }, [supabase, type, city, club, levelMax, modality, priceMax, maxKm, me.latitude, me.longitude]);
+  }, [supabase, type, dCity, dClub, levelMax, modality, dPrice, maxKm, me.latitude, me.longitude]);
 
   useEffect(() => {
     search();
@@ -130,7 +140,7 @@ export function MatchPointSearch({ me }: { me: Profile }) {
               >
                 {r.avatar_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={r.avatar_url} alt="" className="h-14 w-14 shrink-0 rounded-full object-cover" />
+                  <img src={r.avatar_url} alt="" className="h-14 w-14 shrink-0 rounded-full object-cover" loading="lazy" decoding="async" />
                 ) : (
                   <div className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-court-100 font-bold text-court-700">
                     {initials(r.name)}

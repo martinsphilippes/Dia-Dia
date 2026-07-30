@@ -36,7 +36,7 @@ export function RequestDetail({ id }: { id: string }) {
       <div className="flex items-center gap-3">
         {r.requester_avatar ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={r.requester_avatar} alt="" className="h-14 w-14 rounded-full object-cover" />
+          <img src={r.requester_avatar} alt="" className="h-14 w-14 rounded-full object-cover" loading="lazy" decoding="async" />
         ) : (
           <div className="grid h-14 w-14 place-items-center rounded-full bg-court-100 font-bold text-court-700">
             {initials(r.requester_name)}
