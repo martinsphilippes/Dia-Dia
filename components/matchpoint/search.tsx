@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/client";
 import { CLASS_LABELS, MpSearchRow, Profile, SKILL_CLASSES } from "@/lib/types";
 import { cx, initials } from "@/lib/utils";
 import { useDebouncedValue } from "@/lib/use-debounce";
+import { useIncremental } from "@/lib/use-incremental";
+import { RowSkeletons } from "@/components/skeleton";
 
 function brl(cents: number | null) {
   if (!cents) return null;
@@ -59,6 +61,8 @@ export function MatchPointSearch({ me }: { me: Profile }) {
   useEffect(() => {
     search();
   }, [search]);
+
+  const { visible, hasMore, more } = useIncremental(rows ?? [], 20);
 
   return (
     <div className="space-y-4">
@@ -123,7 +127,7 @@ export function MatchPointSearch({ me }: { me: Profile }) {
 
       {/* Resultados */}
       {!rows ? (
-        <p className="py-8 text-center text-sm text-slate-400">Buscando...</p>
+        <RowSkeletons count={5} />
       ) : rows.length === 0 ? (
         <div className="py-10 text-center">
           <div className="text-4xl">🎾</div>
@@ -132,7 +136,7 @@ export function MatchPointSearch({ me }: { me: Profile }) {
         </div>
       ) : (
         <ul className="space-y-2">
-          {rows.map((r) => (
+          {visible.map((r) => (
             <li key={r.id}>
               <Link
                 href={`/matchpoint/perfil/${r.id}`}
@@ -183,6 +187,13 @@ export function MatchPointSearch({ me }: { me: Profile }) {
               </Link>
             </li>
           ))}
+          {hasMore && (
+            <li>
+              <button onClick={more} className="btn-ghost w-full text-sm">
+                Ver mais
+              </button>
+            </li>
+          )}
         </ul>
       )}
     </div>

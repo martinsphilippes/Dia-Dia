@@ -1,19 +1,19 @@
 // MatchPoint Service Worker — cache inteligente + atualização automática
 // Bump CACHE_VERSION a cada release para invalidar caches antigos.
-const CACHE_VERSION = "v1";
+const CACHE_VERSION = "v2";
 const STATIC_CACHE = `mp-static-${CACHE_VERSION}`;
 const PAGE_CACHE = `mp-pages-${CACHE_VERSION}`;
+const IMG_CACHE = `mp-img-${CACHE_VERSION}`;
+const IMG_MAX = 80; // teto de imagens em cache
 
-// Instala já pronto para assumir (skipWaiting) → atualização rápida.
 self.addEventListener("install", () => {
   self.skipWaiting();
 });
 
-// Ativa: limpa caches de versões anteriores e assume o controle.
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     (async () => {
-      const keep = new Set([STATIC_CACHE, PAGE_CACHE]);
+      const keep = new Set([STATIC_CACHE, PAGE_CACHE, IMG_CACHE]);
       const keys = await caches.keys();
       await Promise.all(keys.filter((k) => !keep.has(k)).map((k) => caches.delete(k)));
       await self.clients.claim();
@@ -21,7 +21,6 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-// Permite que a página force a ativação imediata da nova versão.
 self.addEventListener("message", (event) => {
   if (event.data === "SKIP_WAITING") self.skipWaiting();
 });
@@ -50,12 +49,41 @@ async function networkFirst(req) {
   }
 }
 
+// Stale-while-revalidate: responde do cache na hora e atualiza em segundo plano.
+async function staleWhileRevalidate(req, cacheName) {
+  const cache = await caches.open(cacheName);
+  const cached = await cache.match(req);
+  const network = fetch(req)
+    .then((res) => {
+      if (res && (res.ok || res.type === "opaque")) {
+        cache.put(req, res.clone()).then(() => trimCache(cacheName, IMG_MAX));
+      }
+      return res;
+    })
+    .catch(() => null);
+  return cached || (await network) || fetch(req);
+}
+
+async function trimCache(cacheName, max) {
+  const cache = await caches.open(cacheName);
+  const keys = await cache.keys();
+  if (keys.length <= max) return;
+  for (let i = 0; i < keys.length - max; i++) await cache.delete(keys[i]);
+}
+
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;
 
   const url = new URL(req.url);
-  // Só mexe em recursos do próprio domínio (nunca Supabase/APIs externas).
+
+  // Imagens (avatares/ícones), inclusive do Supabase Storage → stale-while-revalidate.
+  if (req.destination === "image") {
+    event.respondWith(staleWhileRevalidate(req, IMG_CACHE));
+    return;
+  }
+
+  // A partir daqui, só recursos do próprio domínio (nunca APIs Supabase).
   if (url.origin !== self.location.origin) return;
 
   // Assets estáticos e imutáveis do Next + ícones → cache-first (rápido).

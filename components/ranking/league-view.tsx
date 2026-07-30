@@ -1121,7 +1121,13 @@ function MembersPanel({
 
 /* ---------------- helpers ---------------- */
 function Loading() {
-  return <p className="py-6 text-center text-sm text-slate-400">Carregando...</p>;
+  return (
+    <div className="space-y-2 py-2" aria-hidden>
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className="h-12 animate-pulse rounded-xl bg-slate-200/70" />
+      ))}
+    </div>
+  );
 }
 function Empty({ text }: { text: string }) {
   return <p className="py-6 text-center text-sm text-slate-500">{text}</p>;

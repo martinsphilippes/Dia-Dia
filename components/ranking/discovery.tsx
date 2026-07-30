@@ -18,6 +18,8 @@ import {
 } from "@/lib/types";
 import { initials } from "@/lib/utils";
 import { useDebouncedValue } from "@/lib/use-debounce";
+import { useIncremental } from "@/lib/use-incremental";
+import { RowSkeletons } from "@/components/skeleton";
 
 /* ============ Jogador: rankings próximos ============ */
 export function NearbyLeagues() {
@@ -43,6 +45,8 @@ export function NearbyLeagues() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const { visible, hasMore, more } = useIncremental(rows ?? [], 20);
 
   function useLocation() {
     if (!navigator.geolocation) return;
@@ -92,12 +96,14 @@ export function NearbyLeagues() {
       </div>
 
       {!rows ? (
-        <p className="mt-4 text-sm text-slate-400">Buscando...</p>
+        <div className="mt-3">
+          <RowSkeletons count={3} />
+        </div>
       ) : rows.length === 0 ? (
         <p className="mt-4 text-sm text-slate-500">Nenhum ranking aberto por perto no momento.</p>
       ) : (
         <ul className="mt-3 space-y-2">
-          {rows.map((l) => (
+          {visible.map((l) => (
             <li key={l.id} className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
@@ -138,6 +144,13 @@ export function NearbyLeagues() {
               </div>
             </li>
           ))}
+          {hasMore && (
+            <li>
+              <button onClick={more} className="btn-ghost w-full text-sm">
+                Ver mais
+              </button>
+            </li>
+          )}
         </ul>
       )}
     </section>
@@ -299,6 +312,8 @@ export function PossibleAthletesPanel({ leagueId }: { leagueId: string }) {
     load();
   }, [load]);
 
+  const { visible, hasMore, more } = useIncremental(rows ?? [], 20);
+
   async function invite(a: PossibleAthlete) {
     setBusy(a.player_id);
     setMsg(null);
@@ -363,12 +378,14 @@ export function PossibleAthletesPanel({ leagueId }: { leagueId: string }) {
       {msg && <p className="mt-2 text-xs text-court-700">{msg}</p>}
 
       {!rows ? (
-        <p className="mt-3 text-xs text-slate-500">Buscando...</p>
+        <div className="mt-3">
+          <RowSkeletons count={3} />
+        </div>
       ) : rows.length === 0 ? (
         <p className="mt-3 text-xs text-slate-500">Nenhum atleta disponível com esses filtros.</p>
       ) : (
         <ul className="mt-3 space-y-2">
-          {rows.map((a) => (
+          {visible.map((a) => (
             <li key={a.player_id} className="flex items-center gap-2 rounded-xl bg-white p-2.5">
               {a.avatar_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -392,6 +409,13 @@ export function PossibleAthletesPanel({ leagueId }: { leagueId: string }) {
               </button>
             </li>
           ))}
+          {hasMore && (
+            <li>
+              <button onClick={more} className="btn-ghost w-full text-xs">
+                Ver mais
+              </button>
+            </li>
+          )}
         </ul>
       )}
 

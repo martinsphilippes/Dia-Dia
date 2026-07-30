@@ -7,6 +7,9 @@ import { createClient } from "@/lib/supabase/client";
 import { IconBack } from "@/components/icons";
 import { NearbyLeagues, MyInvites } from "@/components/ranking/discovery";
 import { NotificationsBell } from "@/components/matchpoint/notifications-bell";
+import { cachedRpc, invalidateCache } from "@/lib/cache";
+
+const CLUBS_CACHE_KEY = "mp:my_clubs";
 import {
   LeagueSummary,
   MyClub,
@@ -39,18 +42,22 @@ export function RankingHub({ isOwner }: { isOwner: boolean }) {
   const [bookingReq, setBookingReq] = useState(true);
 
   const load = useCallback(async () => {
-    const [{ data: m }, { data: o }, { data: mt }, { data: ot }, { data: cl }] = await Promise.all([
+    const [{ data: m }, { data: o }, { data: mt }, { data: ot }, cl] = await Promise.all([
       supabase.rpc("get_my_leagues"),
       supabase.rpc("get_open_leagues"),
       supabase.rpc("get_my_tournaments"),
       supabase.rpc("get_open_tournaments"),
-      supabase.rpc("get_my_clubs"),
+      // clubes mudam pouco na sessão → cache curto com revalidação
+      cachedRpc<MyClub[]>(CLUBS_CACHE_KEY, 60000, async () => {
+        const { data } = await supabase.rpc("get_my_clubs");
+        return (data as unknown as MyClub[]) ?? [];
+      }),
     ]);
     setMine((m as unknown as LeagueSummary[]) ?? []);
     setOpen((o as unknown as OpenLeague[]) ?? []);
     setMyTours((mt as unknown as TournamentSummary[]) ?? []);
     setOpenTours((ot as unknown as OpenTournament[]) ?? []);
-    const myClubs = (cl as unknown as MyClub[]) ?? [];
+    const myClubs = cl ?? [];
     setClubs(myClubs);
     if (myClubs.length > 0) {
       setClubMode("existing");
@@ -83,6 +90,7 @@ export function RankingHub({ isOwner }: { isOwner: boolean }) {
       });
       setBusy(false);
       if (error) return setError(error.message);
+      invalidateCache(CLUBS_CACHE_KEY); // pode ter criado um clube novo
       router.push(`/ranking/${data}`);
     } else {
       const { data, error } = await supabase.rpc("create_tournament", {

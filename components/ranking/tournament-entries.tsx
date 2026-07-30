@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { TournamentCategory, TournamentEntryAdmin } from "@/lib/types";
 import { cx, initials } from "@/lib/utils";
+import { useIncremental } from "@/lib/use-incremental";
+import { RowSkeletons } from "@/components/skeleton";
 
 function brl(cents: number) {
   return `R$ ${(cents / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
@@ -66,21 +68,28 @@ export function TournamentEntries({
     onFeeChange();
   }
 
-  if (!rows) return <p className="py-4 text-center text-sm text-slate-400">Carregando inscritos...</p>;
-
-  const total = rows.length;
-  const pagos = rows.filter((r) => r.paid).length;
-  const naoPagos = total - pagos;
-  const recebido = feeCents ? pagos * feeCents : 0;
-  const pendente = feeCents ? naoPagos * feeCents : 0;
-
-  const filtered = rows.filter((r) => {
+  const list = rows ?? [];
+  const filtered = list.filter((r) => {
     if (filter === "pagos" && !r.paid) return false;
     if (filter === "nao" && r.paid) return false;
     if (catFilter && r.category_id !== catFilter) return false;
     if (q.trim() && !r.name.toLowerCase().includes(q.trim().toLowerCase())) return false;
     return true;
   });
+  const { visible, hasMore, more } = useIncremental(filtered, 20);
+
+  if (!rows)
+    return (
+      <div className="rounded-3xl bg-white p-5 shadow-card">
+        <RowSkeletons count={4} />
+      </div>
+    );
+
+  const total = rows.length;
+  const pagos = rows.filter((r) => r.paid).length;
+  const naoPagos = total - pagos;
+  const recebido = feeCents ? pagos * feeCents : 0;
+  const pendente = feeCents ? naoPagos * feeCents : 0;
 
   return (
     <div className="rounded-3xl bg-white p-5 shadow-card">
@@ -191,7 +200,7 @@ export function TournamentEntries({
         <p className="py-6 text-center text-sm text-slate-400">Nenhum inscrito com esses filtros.</p>
       ) : (
         <ul className="mt-3 divide-y divide-slate-100">
-          {filtered.map((e) => (
+          {visible.map((e) => (
             <li key={e.entry_id} className="flex items-center gap-3 py-2.5">
               {e.avatar_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -220,6 +229,13 @@ export function TournamentEntries({
               </button>
             </li>
           ))}
+          {hasMore && (
+            <li className="py-2">
+              <button onClick={more} className="btn-ghost w-full text-sm">
+                Ver mais ({filtered.length - visible.length})
+              </button>
+            </li>
+          )}
         </ul>
       )}
     </div>
