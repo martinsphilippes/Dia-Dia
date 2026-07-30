@@ -6,6 +6,13 @@ import { LoginGate } from "@/components/LoginGate";
 import { useAuth } from "@/services/auth-context";
 import { listAccounts, listCategories, listTransactions } from "@/services/firestore";
 import {
+  createTransaction,
+  updateTransaction,
+  removeTransaction,
+  type TransactionInput,
+} from "@/services/transactions";
+import { TransactionForm } from "@/components/TransactionForm";
+import {
   filterTransactions,
   summarize,
   type DashboardFilters,
@@ -37,11 +44,15 @@ function Dashboard() {
   const { user } = useAuth();
   const [txs, setTxs] = useState<Transaction[] | null>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [accountName, setAccountName] = useState<Map<string, string>>(new Map());
   const [categoryName, setCategoryName] = useState<Map<string, string>>(new Map());
   const [error, setError] = useState("");
   const [filters, setFilters] = useState<DashboardFilters>({});
+  const [form, setForm] = useState<{ mode: "new" } | { mode: "edit"; tx: Transaction } | null>(
+    null,
+  );
+  const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -79,6 +90,45 @@ function Dashboard() {
   const nameOfAccount = (id?: string | null) =>
     id ? (accountName.get(id) ?? id) : "—";
 
+  async function handleSubmit(input: TransactionInput) {
+    if (!user) return;
+    setSaving(true);
+    setError("");
+    try {
+      if (form?.mode === "edit") await updateTransaction(user.uid, form.tx.id!, input);
+      else await createTransaction(user.uid, input);
+      setForm(null);
+      await load();
+    } catch (err) {
+      setError(`Falha ao salvar: ${(err as Error).message}`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(tx: Transaction) {
+    if (!user || !tx.id) return;
+    if (!confirm(`Excluir o lançamento "${tx.description || tx.date}"?`)) return;
+    setError("");
+    try {
+      await removeTransaction(user.uid, tx.id);
+      await load();
+    } catch (err) {
+      setError(`Falha ao excluir: ${(err as Error).message}`);
+    }
+  }
+
+  const txToInput = (t: Transaction): Partial<TransactionInput> => ({
+    date: t.date,
+    amount: t.amount,
+    type: t.type,
+    description: t.description,
+    accountId: t.accountId,
+    transferAccountId: t.transferAccountId,
+    categoryId: t.categoryId,
+    notes: t.notes,
+  });
+
   if (txs === null) {
     return (
       <div className="panel">
@@ -101,6 +151,27 @@ function Dashboard() {
         />
         <Stat label="Lançamentos" value={String(summary.count)} />
       </div>
+
+      {form ? (
+        <TransactionForm
+          accounts={accounts}
+          categories={categories}
+          initial={form.mode === "edit" ? txToInput(form.tx) : undefined}
+          submitLabel={form.mode === "edit" ? "Salvar alterações" : "Adicionar lançamento"}
+          busy={saving}
+          onSubmit={handleSubmit}
+          onCancel={() => setForm(null)}
+        />
+      ) : (
+        <p>
+          <button onClick={() => setForm({ mode: "new" })} disabled={accounts.length === 0}>
+            + Novo lançamento
+          </button>
+          {accounts.length === 0 && (
+            <span className="muted"> — crie uma conta primeiro em “Contas”.</span>
+          )}
+        </p>
+      )}
 
       <div className="panel">
         <h2>Filtros</h2>
@@ -164,6 +235,7 @@ function Dashboard() {
                 <th>Categoria</th>
                 <th>Conta</th>
                 <th style={{ textAlign: "right" }}>Valor</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -191,6 +263,20 @@ function Dashboard() {
                   >
                     {t.type === "expense" ? "-" : t.type === "income" ? "+" : ""}
                     {brl(t.amount)}
+                  </td>
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    <button
+                      style={{ background: "var(--border)", padding: "0.3rem 0.6rem" }}
+                      onClick={() => setForm({ mode: "edit", tx: t })}
+                    >
+                      Editar
+                    </button>{" "}
+                    <button
+                      style={{ background: "var(--err)", padding: "0.3rem 0.6rem" }}
+                      onClick={() => handleDelete(t)}
+                    >
+                      Excluir
+                    </button>
                   </td>
                 </tr>
               ))}
