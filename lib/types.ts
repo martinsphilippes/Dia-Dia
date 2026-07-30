@@ -429,6 +429,20 @@ export type TournamentDetail = {
   organizer_name: string;
   is_organizer: boolean;
   is_owner: boolean;
+  is_manager: boolean;
+  entry_fee_cents: number | null;
+};
+
+export type TournamentEntryAdmin = {
+  entry_id: string;
+  player_id: string;
+  name: string;
+  avatar_url: string | null;
+  category_id: string;
+  category_name: string;
+  created_at: string;
+  status: string;
+  paid: boolean;
 };
 
 export type TournamentCategory = {

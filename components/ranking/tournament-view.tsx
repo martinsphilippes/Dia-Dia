@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { IconBack } from "@/components/icons";
 import { cx, initials } from "@/lib/utils";
+import { TournamentEntries } from "@/components/ranking/tournament-entries";
 import {
   BracketMatch,
   bracketRoundLabel,
@@ -247,6 +248,16 @@ export function TournamentView({
             </div>
           )}
         </div>
+
+        {/* Inscritos + pagamento (gestores) */}
+        {t.is_manager && (
+          <TournamentEntries
+            tournamentId={tournamentId}
+            cats={cats}
+            feeCents={t.entry_fee_cents}
+            onFeeChange={loadTournament}
+          />
+        )}
 
         {/* Categoria selecionada */}
         {selCat && (
