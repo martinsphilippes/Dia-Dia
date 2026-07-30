@@ -56,7 +56,7 @@ export default async function ChatPage({
   return (
     <div className="flex h-[100dvh] flex-col md:h-screen">
       {/* header */}
-      <header className="flex items-center gap-3 border-b border-slate-200 bg-white px-3 py-3">
+      <header className="top-safe flex items-center gap-3 border-b border-slate-200 bg-white px-3 pb-3">
         <Link
           href="/matches"
           className="grid h-9 w-9 place-items-center rounded-full text-slate-500 hover:bg-slate-100"

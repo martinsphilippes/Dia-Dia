@@ -74,7 +74,7 @@ export function AdminDashboard() {
     : profiles;
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6 pb-24 md:pb-10">
+    <div className="pt-safe mx-auto max-w-5xl px-4 pb-24 md:pb-10">
       <div className="mb-3 flex items-center gap-4">
         <BackButton />
         <a href="/inicio" className="inline-block text-sm font-semibold text-slate-500">

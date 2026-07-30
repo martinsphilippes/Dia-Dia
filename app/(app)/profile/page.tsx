@@ -21,7 +21,7 @@ export default async function ProfilePage() {
   if (!profile) redirect("/onboarding");
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-6 pb-24 md:pb-10">
+    <div className="pt-safe mx-auto max-w-2xl px-4 pb-24 md:pb-10">
       <div className="mb-3 flex items-center gap-4">
         <BackButton />
         <a href="/inicio" className="inline-block text-sm font-semibold text-slate-500">

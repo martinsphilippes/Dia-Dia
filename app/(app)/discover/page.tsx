@@ -23,7 +23,7 @@ export default async function DiscoverPage() {
   const profile = me as Profile;
 
   return (
-    <div className="mx-auto max-w-lg px-4 py-6 pb-24 md:pb-8">
+    <div className="pt-safe mx-auto max-w-lg px-4 pb-24 md:pb-8">
       <div className="mb-3 flex items-center gap-4">
         <BackButton />
         <a href="/inicio" className="inline-block text-sm font-semibold text-slate-500">

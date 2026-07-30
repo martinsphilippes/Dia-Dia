@@ -36,7 +36,7 @@ export default async function LandingPage() {
 
   return (
     <main className="court-bg min-h-screen text-white">
-      <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
+      <header className="pt-safe mx-auto flex max-w-6xl items-center justify-between px-6 pb-6">
         <div className="flex items-center gap-2 text-lg font-bold">
           <TennisBall className="h-8 w-8" />
           MatchPoint

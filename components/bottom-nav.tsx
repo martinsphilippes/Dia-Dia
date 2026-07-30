@@ -22,7 +22,7 @@ export function BottomNav({ unread, isAdmin }: { unread: number; isAdmin?: boole
   if (inChat) return null;
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/90 backdrop-blur md:hidden">
+    <nav className="pb-safe fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/90 backdrop-blur md:hidden">
       <div className="mx-auto flex max-w-lg items-stretch justify-around">
         {items.map(({ href, label, Icon }) => {
           const active = pathname === href || pathname.startsWith(href + "/");

@@ -68,6 +68,13 @@ body {
 .top-safe {
   padding-top: calc(env(safe-area-inset-top) + 0.75rem);
 }
+/* Safe area inferior (home indicator) para menus fixos e bottom sheets */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.pb-safe-sheet {
+  padding-bottom: calc(env(safe-area-inset-bottom) + 1.25rem);
+}
 
 /* Scrollbar discreta */
 ::-webkit-scrollbar {

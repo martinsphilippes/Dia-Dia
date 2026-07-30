@@ -208,7 +208,7 @@ function RequestForm({ me, onClose }: { me: Profile; onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-end bg-black/40 sm:place-items-center" onClick={onClose}>
-      <div className="w-full max-w-md rounded-t-3xl bg-white p-5 sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
+      <div className="pb-safe-sheet w-full max-w-md rounded-t-3xl bg-white p-5 sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
         {done === null ? (
           <form onSubmit={submit} className="space-y-3">
             <h2 className="text-lg font-extrabold">📣 Procuro parceiro</h2>

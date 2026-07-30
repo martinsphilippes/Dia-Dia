@@ -21,7 +21,7 @@ export default async function HubPage() {
   const first = (profile?.name || "").split(" ")[0] || "tenista";
 
   return (
-    <main className="court-bg min-h-[100dvh] px-6 py-10 text-white">
+    <main className="court-bg pt-safe min-h-[100dvh] px-6 pb-10 text-white">
       <header className="mx-auto flex max-w-3xl items-center justify-between">
         <div className="flex items-center gap-2 text-lg font-bold">
           <TennisBall className="h-8 w-8" />

@@ -23,7 +23,7 @@ export default async function OnboardingPage() {
 
   return (
     <main className="min-h-screen bg-slate-50">
-      <div className="court-bg px-6 pb-16 pt-10 text-white">
+      <div className="court-bg pt-safe px-6 pb-16 text-white">
         <div className="mx-auto flex max-w-2xl items-center gap-2 text-lg font-bold">
           <TennisBall className="h-8 w-8" />
           MatchPoint
