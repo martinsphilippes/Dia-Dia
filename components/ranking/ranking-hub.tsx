@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { IconBack } from "@/components/icons";
+import { NearbyLeagues, MyInvites } from "@/components/ranking/discovery";
+import { NotificationsBell } from "@/components/matchpoint/notifications-bell";
 import {
   LeagueSummary,
   MyClub,
@@ -116,11 +118,14 @@ export function RankingHub({ isOwner }: { isOwner: boolean }) {
               <IconBack className="h-5 w-5" /> Início
             </Link>
           </div>
-          <form action="/auth/signout" method="post">
-            <button className="rounded-full px-3 py-1.5 text-sm text-amber-50 ring-1 ring-white/25">
-              Sair
-            </button>
-          </form>
+          <div className="flex items-center gap-3">
+            <NotificationsBell />
+            <form action="/auth/signout" method="post">
+              <button className="rounded-full px-3 py-1.5 text-sm text-amber-50 ring-1 ring-white/25">
+                Sair
+              </button>
+            </form>
+          </div>
         </div>
         <div className="mx-auto mt-6 max-w-2xl">
           <h1 className="text-3xl font-extrabold">🏆 Ranking</h1>
@@ -131,6 +136,9 @@ export function RankingHub({ isOwner }: { isOwner: boolean }) {
       </header>
 
       <div className="mx-auto -mt-5 max-w-2xl space-y-6 px-5 pb-24">
+        {/* Convites recebidos */}
+        <MyInvites />
+
         {/* Gestão (só dono) */}
         {isOwner && (
           <Link
@@ -245,6 +253,9 @@ export function RankingHub({ isOwner }: { isOwner: boolean }) {
               </DashedButton>
             ))}
         </section>
+
+        {/* Rankings próximos */}
+        <NearbyLeagues />
 
         {/* Ligas abertas */}
         {notMember.length > 0 && (

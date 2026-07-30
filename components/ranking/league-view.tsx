@@ -10,6 +10,11 @@ import { ResultForm, formatGames } from "@/components/ranking/result-form";
 import { CourtScheduler } from "@/components/ranking/court-scheduler";
 import { CourtsConfig } from "@/components/ranking/courts-config";
 import {
+  DiscoverySettings,
+  JoinRequestsPanel,
+  PossibleAthletesPanel,
+} from "@/components/ranking/discovery";
+import {
   LeagueDetail,
   LeagueMember,
   MATCH_STATUS_LABELS,
@@ -762,7 +767,12 @@ function About({ league, onChange }: { league: LeagueDetail; onChange: () => voi
       )}
 
       {(league.is_owner || league.is_organizer) && (
-        <MembersPanel league={league} onChange={onChange} />
+        <>
+          <DiscoverySettings leagueId={league.id} />
+          <JoinRequestsPanel leagueId={league.id} onChange={onChange} />
+          <PossibleAthletesPanel leagueId={league.id} />
+          <MembersPanel league={league} onChange={onChange} />
+        </>
       )}
 
       {(league.is_owner || league.is_organizer) && league.status === "ativo" && (

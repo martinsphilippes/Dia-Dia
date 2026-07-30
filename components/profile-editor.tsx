@@ -4,6 +4,8 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
+  ACCEPT_INVITES_LABELS,
+  AcceptInvites,
   CLASS_DESCRIPTIONS,
   CLASS_LABELS,
   DominantHand,
@@ -76,6 +78,10 @@ export function ProfileEditor({
   const [mpTimeEnd, setMpTimeEnd] = useState<string>((profile.mp_time_end ?? "").slice(0, 5));
   const [mpNotes, setMpNotes] = useState<string>(profile.mp_notes ?? "");
   const [mpPrefs, setMpPrefs] = useState<string[]>(profile.mp_prefs ?? []);
+  const [uf, setUf] = useState<string>(profile.state ?? "");
+  const [acceptInv, setAcceptInv] = useState<AcceptInvites>(
+    (profile.accept_ranking_invites as AcceptInvites) ?? "any"
+  );
 
   function toggleMpDay(d: number) {
     setMpDays((p) => (p.includes(d) ? p.filter((x) => x !== d) : [...p, d].sort()));
@@ -204,6 +210,8 @@ export function ProfileEditor({
           mp_time_end: mpTimeEnd || null,
           mp_notes: mpNotes.trim() || null,
           mp_prefs: mpPrefs,
+          state: uf.trim() || null,
+          accept_ranking_invites: acceptInv,
         })
         .eq("id", profile.id);
       if (upErr) throw upErr;
@@ -550,6 +558,36 @@ export function ProfileEditor({
             </div>
           </div>
         )}
+      </div>
+
+      {/* Disponibilidade para rankings próximos */}
+      <div className="rounded-2xl border border-amber-200 bg-amber-50/50 p-4">
+        <label className="label">🏆 Convites para rankings próximos</label>
+        <p className="mb-3 text-xs text-slate-500">
+          Defina se organizadores de rankings por perto podem te convidar. Você sempre pode
+          solicitar entrada por conta própria.
+        </p>
+        <select
+          className="input"
+          value={acceptInv}
+          onChange={(e) => setAcceptInv(e.target.value as AcceptInvites)}
+        >
+          {(Object.keys(ACCEPT_INVITES_LABELS) as AcceptInvites[]).map((k) => (
+            <option key={k} value={k}>
+              {ACCEPT_INVITES_LABELS[k]}
+            </option>
+          ))}
+        </select>
+        <div className="mt-3">
+          <label className="label">Estado (UF)</label>
+          <input
+            className="input"
+            maxLength={2}
+            placeholder="Ex.: MG"
+            value={uf}
+            onChange={(e) => setUf(e.target.value.toUpperCase())}
+          />
+        </div>
       </div>
 
       {/* Bio */}

@@ -108,6 +108,8 @@ export type Profile = {
   mp_time_end?: string | null;
   mp_notes?: string | null;
   mp_prefs?: string[] | null;
+  state?: string | null;
+  accept_ranking_invites?: string | null;
 };
 
 // Linhas retornadas pelas RPCs de admin
@@ -243,6 +245,99 @@ export type ArchivedLeague = {
   affected_matches: number;
   affected_bookings: number;
   deleted_at: string;
+};
+
+/* ---------------- Descoberta / entrada em rankings ---------------- */
+export type AcceptInvites = "no" | "same_city" | "25" | "50" | "100" | "any";
+
+export const ACCEPT_INVITES_LABELS: Record<AcceptInvites, string> = {
+  no: "Não aceitar convites",
+  same_city: "Só da mesma cidade",
+  "25": "Até 25 km",
+  "50": "Até 50 km",
+  "100": "Até 100 km",
+  any: "Qualquer distância",
+};
+
+export type LeagueVisibility =
+  | "public_approval"
+  | "nearby_only"
+  | "private"
+  | "invite_only"
+  | "closed";
+
+export const VISIBILITY_LABELS: Record<LeagueVisibility, string> = {
+  public_approval: "Público (com aprovação)",
+  nearby_only: "Visível só para quem está perto",
+  private: "Privado",
+  invite_only: "Só por convite",
+  closed: "Fechado para novas entradas",
+};
+
+export type NearbyLeague = {
+  id: string;
+  name: string;
+  club_name: string | null;
+  city: string | null;
+  state: string | null;
+  distance_km: number | null;
+  member_count: number;
+  status: string;
+  my_request_status: string | null;
+  has_invite: boolean;
+};
+
+export type JoinRequest = {
+  request_id: string;
+  player_id: string;
+  name: string;
+  avatar_url: string | null;
+  city: string | null;
+  state: string | null;
+  skill_class: SkillClass;
+  clubs: string | null;
+  other_rankings: number;
+  distance_km: number | null;
+  message: string | null;
+  created_at: string;
+};
+
+export type PossibleAthlete = {
+  player_id: string;
+  name: string;
+  avatar_url: string | null;
+  city: string | null;
+  state: string | null;
+  skill_class: SkillClass;
+  clubs: string | null;
+  other_rankings: number;
+  availability: AcceptInvites;
+  distance_km: number | null;
+};
+
+export type MyRankingInvite = {
+  invite_id: string;
+  league_id: string;
+  league_name: string;
+  club_name: string | null;
+  organizer_name: string | null;
+  class_label: string | null;
+  message: string | null;
+  deadline: string | null;
+  created_at: string;
+};
+
+export type LeagueDiscovery = {
+  visibility: LeagueVisibility;
+  discovery_radius_km: number;
+  latitude: number | null;
+  longitude: number | null;
+  city: string | null;
+  state: string | null;
+  max_participants: number | null;
+  entry_deadline: string | null;
+  member_count: number;
+  is_manager: boolean;
 };
 
 export type MyClub = {
