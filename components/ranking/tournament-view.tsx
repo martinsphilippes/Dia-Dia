@@ -9,6 +9,9 @@ import {
   BracketMatch,
   bracketRoundLabel,
   CategoryEntry,
+  CLASS_LABELS,
+  SKILL_CLASSES,
+  SkillClass,
   TOURNAMENT_STATUS_LABELS,
   TournamentCategory,
   TournamentDetail,
@@ -25,8 +28,8 @@ export function TournamentView({
   const [t, setT] = useState<TournamentDetail | null>(null);
   const [cats, setCats] = useState<TournamentCategory[]>([]);
   const [selCat, setSelCat] = useState<string | null>(null);
-  const [newCat, setNewCat] = useState("");
-  const [addingCat, setAddingCat] = useState(false);
+  const [catBusy, setCatBusy] = useState(false);
+  const [catMsg, setCatMsg] = useState<string | null>(null);
   const [orgEmail, setOrgEmail] = useState("");
   const [orgMsg, setOrgMsg] = useState<string | null>(null);
 
@@ -66,17 +69,29 @@ export function TournamentView({
     loadTournament();
   }
 
-  async function addCategory(e: React.FormEvent) {
-    e.preventDefault();
-    if (newCat.trim().length < 1) return;
-    const { data } = await supabase.rpc("add_tournament_category", {
-      p_tournament_id: tournamentId,
-      p_name: newCat.trim(),
-    });
-    setNewCat("");
-    setAddingCat(false);
+  // Alterna uma classe: adiciona a categoria se não existir; remove se existir (e estiver vazia).
+  async function toggleClass(cls: SkillClass) {
+    const label = CLASS_LABELS[cls];
+    const existing = cats.find((c) => c.name === label);
+    setCatMsg(null);
+    setCatBusy(true);
+    if (existing) {
+      if (Number(existing.entry_count) > 0) {
+        setCatBusy(false);
+        setCatMsg(`${label}: há inscritos, não é possível remover.`);
+        return;
+      }
+      await supabase.rpc("delete_tournament_category", { p_category_id: existing.id });
+      if (selCat === existing.id) setSelCat(null);
+    } else {
+      const { data } = await supabase.rpc("add_tournament_category", {
+        p_tournament_id: tournamentId,
+        p_name: label,
+      });
+      if (data) setSelCat(data as string);
+    }
     await loadTournament();
-    if (data) setSelCat(data as string);
+    setCatBusy(false);
   }
 
   if (!t) {
@@ -159,51 +174,76 @@ export function TournamentView({
 
         {/* Categorias */}
         <div className="rounded-3xl bg-white p-5 shadow-card">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold">Categorias</h2>
-            {(t.is_organizer || t.is_owner) && !addingCat && (
-              <button onClick={() => setAddingCat(true)} className="text-sm font-semibold text-amber-700">
-                + Categoria
-              </button>
-            )}
-          </div>
+          <h2 className="text-lg font-bold">Categorias</h2>
 
-          {addingCat && (
-            <form onSubmit={addCategory} className="mt-3 flex gap-2">
-              <input
-                className="input flex-1"
-                placeholder="Ex.: Masculino A, Feminino, Iniciante"
-                value={newCat}
-                onChange={(e) => setNewCat(e.target.value)}
-                autoFocus
-              />
-              <button className="btn-primary text-sm">Add</button>
-              <button type="button" className="btn-ghost text-sm" onClick={() => setAddingCat(false)}>
-                ✕
-              </button>
-            </form>
-          )}
+          {(t.is_organizer || t.is_owner) ? (
+            <>
+              <p className="mt-1 text-sm text-slate-500">Selecione as classes do torneio:</p>
+              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {SKILL_CLASSES.map((cls) => {
+                  const label = CLASS_LABELS[cls];
+                  const existing = cats.find((c) => c.name === label);
+                  const on = !!existing;
+                  return (
+                    <button
+                      key={cls}
+                      onClick={() => toggleClass(cls)}
+                      disabled={catBusy}
+                      className={cx(
+                        "flex items-center justify-between rounded-2xl border-2 px-4 py-4 text-left text-base font-semibold transition",
+                        on
+                          ? "border-amber-600 bg-amber-600 text-white shadow-sm"
+                          : "border-slate-200 bg-white text-slate-700 hover:border-amber-300"
+                      )}
+                    >
+                      <span>{label}</span>
+                      <span className={cx("text-sm", on ? "text-amber-100" : "text-slate-300")}>
+                        {on ? (
+                          Number(existing!.entry_count) > 0
+                            ? `${Number(existing!.entry_count)} inscrito(s)`
+                            : "✓ selecionada"
+                        ) : (
+                          "tocar para adicionar"
+                        )}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              {catMsg && <p className="mt-2 text-xs text-red-600">{catMsg}</p>}
+              {cats.length === 0 ? (
+                <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                  Selecione ao menos uma classe para abrir inscrições.
+                </p>
+              ) : (
+                <p className="mt-3 text-xs text-slate-500">
+                  {cats.length} categoria(s): {cats.map((c) => c.name).join(", ")}. Toque numa classe
+                  selecionada para removê-la (se não houver inscritos).
+                </p>
+              )}
+            </>
+          ) : cats.length === 0 ? (
+            <p className="mt-3 text-sm text-slate-500">Sem categorias ainda.</p>
+          ) : null}
 
-          {cats.length === 0 ? (
-            <p className="mt-3 text-sm text-slate-500">
-              {(t.is_organizer || t.is_owner)
-                ? "Crie ao menos uma categoria para abrir inscrições."
-                : "Sem categorias ainda."}
-            </p>
-          ) : (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {cats.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => setSelCat(c.id)}
-                  className={cx(
-                    "rounded-full px-4 py-2 text-sm font-semibold transition",
-                    selCat === c.id ? "bg-amber-600 text-white" : "bg-slate-100 text-slate-600"
-                  )}
-                >
-                  {c.name} · {Number(c.entry_count)}
-                </button>
-              ))}
+          {/* Selecionar categoria para visualizar (inscritos, chaves, jogos) */}
+          {cats.length > 0 && (
+            <div className="mt-4 border-t border-slate-100 pt-3">
+              <p className="mb-2 text-xs font-semibold uppercase text-slate-400">Ver categoria</p>
+              <div className="flex flex-wrap gap-2">
+                {cats.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => setSelCat(c.id)}
+                    className={cx(
+                      "rounded-full px-4 py-2 text-sm font-semibold transition",
+                      selCat === c.id ? "bg-amber-600 text-white" : "bg-slate-100 text-slate-600"
+                    )}
+                  >
+                    {c.name} · {Number(c.entry_count)}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>
