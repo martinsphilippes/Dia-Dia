@@ -24,6 +24,7 @@ export function AppHeader() {
       <Link href="/" style={{ fontWeight: 700, color: "var(--text)" }}>
         WalletQuantso
       </Link>
+      <Link href="/dashboard">Lançamentos</Link>
       <Link href="/import">Importar</Link>
       <Link href="/history">Histórico</Link>
       <span style={{ flex: 1 }} />
