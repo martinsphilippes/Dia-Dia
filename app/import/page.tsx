@@ -26,6 +26,7 @@ const FIELD_LABELS: Record<CanonicalField, string> = {
   amount: "Valor",
   type: "Tipo (receita/despesa)",
   account: "Conta",
+  card: "Cartão",
   category: "Categoria",
   subcategory: "Subcategoria",
   costCenter: "Centro de custo",

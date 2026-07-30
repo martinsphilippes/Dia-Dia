@@ -97,6 +97,7 @@ export type CanonicalField =
   | "amount"
   | "type"
   | "account"
+  | "card"
   | "category"
   | "subcategory"
   | "costCenter"

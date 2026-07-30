@@ -17,19 +17,24 @@ import { parseBrCurrency, parseBrDate } from "@/lib/br/parse";
 export type RawRow = Record<string, unknown>;
 
 /** Header-detection keywords per canonical field (accent-insensitive). */
+// Keyword lists tuned to the official Meu Dinheiro export layout:
+//   Data, Valor, Descrição, Conta, Conta Transferência, Cartão, Categoria,
+//   Subcategoria, Contato, Centro, Projeto, Forma, N. Documento, Observações,
+//   Data Competência, Tags
 const FIELD_KEYWORDS: Record<CanonicalField, string[]> = {
-  date: ["data", "date", "dia", "vencimento", "competencia"],
-  description: ["descricao", "descrição", "historico", "histórico", "memo", "lancamento", "lançamento", "titulo", "título"],
+  date: ["data", "date", "dia", "vencimento"],
+  description: ["descricao", "descrição", "historico", "histórico", "memo", "titulo", "título"],
   amount: ["valor", "amount", "quantia", "montante", "total"],
   type: ["tipo", "type", "natureza", "receita/despesa", "d/c"],
-  account: ["conta", "account", "banco", "carteira", "cartao", "cartão"],
+  account: ["conta", "account", "banco", "carteira"],
+  card: ["cartao", "cartão"],
   category: ["categoria", "category"],
   subcategory: ["subcategoria", "sub-categoria", "subcategory"],
   costCenter: ["centro de custo", "centro", "projeto", "cost center"],
-  notes: ["observacao", "observação", "obs", "notas", "nota", "comentario", "comentário"],
+  notes: ["observacoes", "observações", "observacao", "observação", "obs", "notas", "nota", "comentario", "comentário"],
   installment: ["parcela", "parcelamento", "installment"],
   tags: ["tag", "tags", "etiqueta", "etiquetas"],
-  transferAccount: ["conta destino", "destino", "transferencia", "transferência"],
+  transferAccount: ["conta transferencia", "conta transferência", "conta destino", "destino", "transferencia", "transferência"],
 };
 
 /** Remove accents and lowercase, for tolerant header matching. */
@@ -189,7 +194,9 @@ export function normalizeRow(row: RawRow, mapping: ColumnMapping, rowNumber: num
   const description = get("description") ?? "";
   if (!description) warnings.push("Descrição vazia.");
 
-  const account = get("account") ?? "";
+  // Meu Dinheiro uses a separate "Cartão" column for card transactions, where
+  // "Conta" is left blank. Fall back to the card as the account in that case.
+  const account = get("account") || get("card") || "";
   if (!account) errors.push("Conta não informada.");
 
   const transferAccount = get("transferAccount");

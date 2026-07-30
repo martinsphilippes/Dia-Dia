@@ -30,6 +30,30 @@ describe("detectColumns", () => {
     expect(m["Categoria"]).toBe("category");
     expect(m["Subcategoria"]).toBe("subcategory");
   });
+
+  it("maps the exact Meu Dinheiro export layout", () => {
+    const m = detectColumns([
+      "Data", "Valor", "Descrição", "Conta", "Conta Transferência", "Cartão",
+      "Categoria", "Subcategoria", "Contato", "Centro", "Projeto", "Forma",
+      "N. Documento", "Observações", "Data Competência", "Tags",
+    ]);
+    expect(m["Data"]).toBe("date");
+    expect(m["Valor"]).toBe("amount");
+    expect(m["Descrição"]).toBe("description");
+    expect(m["Conta"]).toBe("account");
+    expect(m["Conta Transferência"]).toBe("transferAccount");
+    expect(m["Cartão"]).toBe("card");
+    expect(m["Categoria"]).toBe("category");
+    expect(m["Subcategoria"]).toBe("subcategory");
+    expect(m["Centro"]).toBe("costCenter");
+    expect(m["Observações"]).toBe("notes");
+    expect(m["Tags"]).toBe("tags");
+    // Fields with no home in the model stay unmapped.
+    expect(m["Contato"]).toBeNull();
+    expect(m["Projeto"]).toBeNull();
+    expect(m["Data Competência"]).toBeNull();
+    expect(m["N. Documento"]).toBeNull();
+  });
 });
 
 describe("classify", () => {
@@ -115,6 +139,68 @@ describe("normalizeRow", () => {
     const row: RawRow = { Data: "01/01/2025", Descrição: "x", Valor: "10,00", Conta: "" };
     const r = normalizeRow(row, MAPPING, 3);
     expect(r.errors).toContain("Conta não informada.");
+  });
+
+  it("falls back to the card column when Conta is blank", () => {
+    const mapping = detectColumns(["Data", "Valor", "Descrição", "Conta", "Cartão"]);
+    const row: RawRow = {
+      Data: "01/01/2025",
+      Valor: "-10,00",
+      Descrição: "Compra no cartão",
+      Conta: "",
+      Cartão: "Nubank Cartão",
+    };
+    const r = normalizeRow(row, mapping, 1);
+    expect(r.errors).toEqual([]);
+    expect(r.transaction?.accountId).toBe("Nubank Cartão");
+  });
+});
+
+describe("Meu Dinheiro sample data end-to-end", () => {
+  const MD_HEADER = [
+    "Data", "Valor", "Descrição", "Conta", "Conta Transferência", "Cartão",
+    "Categoria", "Subcategoria", "Contato", "Centro", "Projeto", "Forma",
+    "N. Documento", "Observações", "Data Competência", "Tags",
+  ];
+  const mapping = detectColumns(MD_HEADER);
+
+  it("normalizes a real sample row", () => {
+    const row: RawRow = {
+      Data: "28/08/2019",
+      Valor: "-12,2",
+      Descrição: "Lançamento 1",
+      Conta: "Nubank",
+      Categoria: "Alimentação",
+      Subcategoria: "Almoço",
+      Centro: "Pessoal",
+      Tags: "tag1, tag2, tag3",
+    };
+    const r = normalizeRow(row, mapping, 1);
+    expect(r.errors).toEqual([]);
+    expect(r.transaction).toMatchObject({
+      date: "2019-08-28",
+      amount: 12.2,
+      type: "expense",
+      description: "Lançamento 1",
+      accountId: "Nubank",
+      categoryId: "Alimentação",
+      costCenterId: "Pessoal",
+    });
+    expect(r.transaction?.tags).toEqual(["tag1", "tag2", "tag3"]);
+  });
+
+  it("treats a filled Conta Transferência as a transfer", () => {
+    const row: RawRow = {
+      Data: "30/08/2019",
+      Valor: "-500",
+      Descrição: "Transf",
+      Conta: "Itaú",
+      "Conta Transferência": "Nubank",
+    };
+    const r = normalizeRow(row, mapping, 1);
+    expect(r.transaction?.type).toBe("transfer");
+    expect(r.transaction?.accountId).toBe("Itaú");
+    expect(r.transaction?.transferAccountId).toBe("Nubank");
   });
 });
 
