@@ -15,9 +15,10 @@ import {
 } from "@/lib/import/reconcile";
 import type { CanonicalField, ColumnMapping } from "@/types";
 import { LoginGate } from "@/components/LoginGate";
+import { AppHeader } from "@/components/AppHeader";
 import { useAuth } from "@/services/auth-context";
-import { signOut } from "@/services/auth";
 import { commitImport, revertImport, type CommitReport } from "@/services/import";
+import Link from "next/link";
 
 const FIELD_LABELS: Record<CanonicalField, string> = {
   date: "Data",
@@ -39,27 +40,12 @@ const ALL_FIELDS = Object.keys(FIELD_LABELS) as CanonicalField[];
 export default function ImportPage() {
   return (
     <main className="container">
-      <Header />
+      <AppHeader />
       <h1>Importar lançamentos</h1>
       <LoginGate>
         <Importer />
       </LoginGate>
     </main>
-  );
-}
-
-function Header() {
-  const { user } = useAuth();
-  if (!user) return null;
-  return (
-    <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem" }}>
-      <span className="muted" style={{ alignSelf: "center" }}>
-        {user.email}
-      </span>
-      <button style={{ background: "var(--border)" }} onClick={() => signOut()}>
-        Sair
-      </button>
-    </div>
   );
 }
 
@@ -389,6 +375,9 @@ function Importer() {
             </>
           )}
           {error && <p className="badge err">{error}</p>}
+          <p style={{ marginTop: "1rem" }}>
+            <Link href="/history">Ver histórico de importações →</Link>
+          </p>
         </div>
       )}
     </>

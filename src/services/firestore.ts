@@ -96,6 +96,16 @@ export async function getImportBatch(id: string): Promise<ImportBatch | null> {
   return snap.exists() ? ({ id: snap.id, ...(snap.data() as object) } as ImportBatch) : null;
 }
 
+/** List a user's import batches, newest first. */
+export async function listImportBatches(ownerId: string): Promise<ImportBatch[]> {
+  const q = query(
+    collection(db, COLLECTIONS.importBatches),
+    where("ownerId", "==", ownerId),
+    orderBy("createdAt", "desc"),
+  );
+  return mapDocs<ImportBatch>(await getDocs(q));
+}
+
 /** Append an audit entry (append-only per security rules). */
 export async function appendAudit(entry: Omit<AuditEntry, "id">): Promise<string> {
   const ref = await addDoc(collection(db, COLLECTIONS.auditLog), entry);

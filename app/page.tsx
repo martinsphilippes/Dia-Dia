@@ -15,9 +15,12 @@ export default function Home() {
           então a gravação — com detecção de duplicidades e possibilidade de
           desfazer.
         </p>
-        <p>
+        <p style={{ display: "flex", gap: "0.75rem" }}>
           <Link href="/import">
             <button>Importar lançamentos →</button>
+          </Link>
+          <Link href="/history">
+            <button style={{ background: "var(--border)" }}>Histórico</button>
           </Link>
         </p>
       </div>
