@@ -20,14 +20,19 @@ import { getFirestore, type Firestore } from "firebase/firestore";
 import { getStorage, type FirebaseStorage } from "firebase/storage";
 import { getAnalytics, isSupported, type Analytics } from "firebase/analytics";
 
+// Firebase *web* config values are public by design (they identify the
+// project in the browser; security is enforced by Firestore rules + Auth).
+// They are safe to commit, so we fall back to the project's literal values
+// when env vars are absent — this lets the app deploy (e.g. on Vercel) with no
+// environment configuration. Set NEXT_PUBLIC_FIREBASE_* to override.
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY ?? "AIzaSyC4RPM9d5-EbzDS6aYru6XTIWSi7PVmB1k",
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN ?? "walletquantso.firebaseapp.com",
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? "walletquantso",
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ?? "walletquantso.firebasestorage.app",
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID ?? "314680714852",
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID ?? "1:314680714852:web:90fe8b4373e3f720ca2171",
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID ?? "G-TDBE7C2G3V",
 };
 
 // Reuse the existing app during hot-module reloads instead of re-initializing.
