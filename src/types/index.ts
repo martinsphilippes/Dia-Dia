@@ -1,29 +1,138 @@
-// Shared domain types.
+// WalletQuantso — domain model.
+//
+// A personal finance system. These types describe the entities persisted in
+// Firestore. All records are scoped to a single owner (`ownerId`) so that
+// security rules can isolate each user's data.
 
-/** A single parsed delivery/quotation row (mirrors the WhatsApp → Excel parser). */
-export interface DeliveryRow {
-  /** Period marker, e.g. "Manhã", "Noite", or "—" when unknown. */
-  periodo: string;
-  /** Quotation number (kept as string to preserve leading zeros) or a name. */
-  cotacao: string;
-  /** Neighbourhood / bairro. */
-  bairro: string;
-  /** Courier phone number, or "" when none. */
-  telefone: string;
-  /** Resolved day-of-week / date label, or "" when none. */
-  dia: string;
+/** Kind of money movement. */
+export type TransactionType = "income" | "expense" | "transfer";
+
+/** Kind of account / where money lives. */
+export type AccountType =
+  | "checking" // conta corrente
+  | "savings" // poupança
+  | "credit_card" // cartão de crédito
+  | "cash" // dinheiro
+  | "investment" // investimento
+  | "other";
+
+/** A bank account, wallet, or credit card. */
+export interface Account {
+  id?: string;
+  ownerId: string;
+  name: string;
+  type: AccountType;
+  /** Opening balance used as the starting point of the ledger, in BRL. */
+  initialBalance: number;
+  currency: string; // e.g. "BRL"
+  archived: boolean;
+  createdAt: number;
 }
 
-/** A saved batch of rows, as persisted in Firestore. */
-export interface DeliveryBatch {
-  /** Firestore document id (present when read back, omitted on create). */
+/** A category or subcategory (subcategory has a `parentId`). */
+export interface Category {
   id?: string;
-  /** UID of the owner. */
   ownerId: string;
-  /** The parsed rows in this batch. */
-  rows: DeliveryRow[];
-  /** Optional human-friendly label. */
-  title?: string;
-  /** Creation timestamp in epoch milliseconds. */
+  name: string;
+  /** Which type of transaction this category applies to. */
+  kind: TransactionType;
+  /** Parent category id when this is a subcategory; null for top-level. */
+  parentId: string | null;
   createdAt: number;
+}
+
+/** A cost center / project (centro de custo / projeto). */
+export interface CostCenter {
+  id?: string;
+  ownerId: string;
+  name: string;
+  createdAt: number;
+}
+
+/** Installment metadata for a transaction that is part of a series. */
+export interface Installment {
+  /** 1-based position, e.g. 3. */
+  number: number;
+  /** Total count, e.g. 12. */
+  total: number;
+}
+
+/** A single ledger entry (lançamento). */
+export interface Transaction {
+  id?: string;
+  ownerId: string;
+  /** Transaction date as an ISO date string (YYYY-MM-DD). */
+  date: string;
+  /** Absolute amount in BRL (always positive; direction comes from `type`). */
+  amount: number;
+  type: TransactionType;
+  description: string;
+  notes?: string;
+  accountId: string;
+  categoryId?: string | null;
+  costCenterId?: string | null;
+  /** For transfers: the destination account. */
+  transferAccountId?: string | null;
+  installment?: Installment | null;
+  tags?: string[];
+  /** Id of the import batch that created this record (for undo/audit). */
+  importBatchId?: string | null;
+  /** Stable hash of natural key fields, used for duplicate detection. */
+  dedupHash: string;
+  createdAt: number;
+}
+
+/** Lifecycle of an import batch. */
+export type ImportStatus = "preview" | "committed" | "reverted";
+
+/** A mapping from a spreadsheet column header to a canonical field. */
+export type ColumnMapping = Record<string, CanonicalField | null>;
+
+/** Canonical fields the importer understands. */
+export type CanonicalField =
+  | "date"
+  | "description"
+  | "amount"
+  | "type"
+  | "account"
+  | "category"
+  | "subcategory"
+  | "costCenter"
+  | "notes"
+  | "installment"
+  | "tags"
+  | "transferAccount";
+
+/** An import run — created in `preview` before anything is committed. */
+export interface ImportBatch {
+  id?: string;
+  ownerId: string;
+  sourceFileName: string;
+  status: ImportStatus;
+  mapping: ColumnMapping;
+  counts: {
+    total: number;
+    imported: number;
+    ignored: number;
+    rejected: number;
+  };
+  createdAt: number;
+  committedAt?: number | null;
+  revertedAt?: number | null;
+}
+
+/** Append-only audit record. */
+export interface AuditEntry {
+  id?: string;
+  ownerId: string;
+  action:
+    | "import_preview"
+    | "import_commit"
+    | "import_revert"
+    | "manual_create"
+    | "manual_update"
+    | "manual_delete";
+  importBatchId?: string | null;
+  details: Record<string, unknown>;
+  at: number;
 }

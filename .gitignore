@@ -4,3 +4,12 @@ node_modules/
 .env
 .env.local
 .env*.local
+
+# Next.js
+/.next/
+/out/
+next-env.d.ts
+*.tsbuildinfo
+
+# Test / build artifacts
+/coverage/
