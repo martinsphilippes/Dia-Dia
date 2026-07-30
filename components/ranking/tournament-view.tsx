@@ -76,23 +76,31 @@ export function TournamentView({
     const existing = cats.find((c) => c.name === label);
     setCatMsg(null);
     setCatBusy(true);
-    if (existing) {
-      if (Number(existing.entry_count) > 0) {
-        setCatBusy(false);
-        setCatMsg(`${label}: há inscritos, não é possível remover.`);
-        return;
+    try {
+      if (existing) {
+        if (Number(existing.entry_count) > 0) {
+          setCatMsg(`${label}: há inscritos, não é possível remover.`);
+          return;
+        }
+        const { error } = await supabase.rpc("delete_tournament_category", { p_category_id: existing.id });
+        if (error) throw error;
+        if (selCat === existing.id) setSelCat(null);
+        await loadTournament();
+      } else {
+        const { data, error } = await supabase.rpc("add_tournament_category", {
+          p_tournament_id: tournamentId,
+          p_name: label,
+        });
+        if (error) throw error;
+        await loadTournament();
+        if (typeof data === "string") setSelCat(data);
       }
-      await supabase.rpc("delete_tournament_category", { p_category_id: existing.id });
-      if (selCat === existing.id) setSelCat(null);
-    } else {
-      const { data } = await supabase.rpc("add_tournament_category", {
-        p_tournament_id: tournamentId,
-        p_name: label,
-      });
-      if (data) setSelCat(data as string);
+    } catch (err) {
+      console.error("toggleClass falhou:", err);
+      setCatMsg("Não foi possível atualizar as categorias do torneio. Tente novamente.");
+    } finally {
+      setCatBusy(false);
     }
-    await loadTournament();
-    setCatBusy(false);
   }
 
   if (!t) {
@@ -102,6 +110,9 @@ export function TournamentView({
       </main>
     );
   }
+
+  // Categoria selecionada, se ainda existir na lista atual (evita render com undefined)
+  const selCategory = cats.find((c) => c.id === selCat) ?? null;
 
   return (
     <main className="min-h-[100dvh] bg-amber-50/40">
@@ -259,13 +270,13 @@ export function TournamentView({
           />
         )}
 
-        {/* Categoria selecionada */}
-        {selCat && (
+        {/* Categoria selecionada — só renderiza se a categoria realmente existir */}
+        {selCategory && (
           <CategoryPanel
-            key={selCat}
-            categoryId={selCat}
+            key={selCategory.id}
+            categoryId={selCategory.id}
             tournament={t}
-            category={cats.find((c) => c.id === selCat)!}
+            category={selCategory}
             meId={meId}
             onChange={loadTournament}
           />
