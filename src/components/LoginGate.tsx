@@ -76,7 +76,7 @@ export function LoginGate({ children }: { children: React.ReactNode }) {
             style={inputStyle}
           />
         </p>
-        <button type="submit" disabled={busy}>
+        <button type="submit" className="btn-primary" disabled={busy}>
           {mode === "signin" ? "Entrar" : "Criar conta"}
         </button>
       </form>

@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { AppHeader } from "@/components/AppHeader";
 import { LoginGate } from "@/components/LoginGate";
 import { useAuth } from "@/services/auth-context";
 import { listImportBatches } from "@/services/firestore";
@@ -10,13 +9,12 @@ import type { ImportBatch } from "@/types";
 
 export default function HistoryPage() {
   return (
-    <main className="container">
-      <AppHeader />
+    <>
       <h1>Histórico de importações</h1>
       <LoginGate>
         <History />
       </LoginGate>
-    </main>
+    </>
   );
 }
 

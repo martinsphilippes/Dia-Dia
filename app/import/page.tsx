@@ -15,7 +15,6 @@ import {
 } from "@/lib/import/reconcile";
 import type { CanonicalField, ColumnMapping } from "@/types";
 import { LoginGate } from "@/components/LoginGate";
-import { AppHeader } from "@/components/AppHeader";
 import { useAuth } from "@/services/auth-context";
 import { commitImport, revertImport, type CommitReport } from "@/services/import";
 import Link from "next/link";
@@ -40,13 +39,12 @@ const ALL_FIELDS = Object.keys(FIELD_LABELS) as CanonicalField[];
 
 export default function ImportPage() {
   return (
-    <main className="container">
-      <AppHeader />
+    <>
       <h1>Importar lançamentos</h1>
       <LoginGate>
         <Importer />
       </LoginGate>
-    </main>
+    </>
   );
 }
 

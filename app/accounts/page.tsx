@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AppHeader } from "@/components/AppHeader";
 import { LoginGate } from "@/components/LoginGate";
 import { useAuth } from "@/services/auth-context";
 import {
@@ -28,13 +27,12 @@ const brl = (n: number) =>
 
 export default function AccountsPage() {
   return (
-    <main className="container">
-      <AppHeader />
+    <>
       <h1>Contas e saldos</h1>
       <LoginGate>
         <Accounts />
       </LoginGate>
-    </main>
+    </>
   );
 }
 

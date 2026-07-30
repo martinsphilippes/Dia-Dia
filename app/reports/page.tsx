@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AppHeader } from "@/components/AppHeader";
 import { LoginGate } from "@/components/LoginGate";
 import { useAuth } from "@/services/auth-context";
 import { listCategories, listTransactions } from "@/services/firestore";
@@ -29,13 +28,12 @@ const monthLabel = (m: string) => {
 
 export default function ReportsPage() {
   return (
-    <main className="container">
-      <AppHeader />
+    <>
       <h1>Relatórios</h1>
       <LoginGate>
         <Reports />
       </LoginGate>
-    </main>
+    </>
   );
 }
 

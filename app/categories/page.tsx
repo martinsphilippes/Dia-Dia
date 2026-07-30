@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AppHeader } from "@/components/AppHeader";
 import { LoginGate } from "@/components/LoginGate";
 import { useAuth } from "@/services/auth-context";
 import { listCategories, listTransactions } from "@/services/firestore";
@@ -23,13 +22,12 @@ const KINDS = Object.keys(KIND_LABELS) as TransactionType[];
 
 export default function CategoriesPage() {
   return (
-    <main className="container">
-      <AppHeader />
+    <>
       <h1>Categorias</h1>
       <LoginGate>
         <Categories />
       </LoginGate>
-    </main>
+    </>
   );
 }
 
@@ -288,7 +286,7 @@ function Categories() {
                                 Editar
                               </button>{" "}
                               <button
-                                style={{ background: "var(--accent)" }}
+                                className="btn-primary"
                                 onClick={() => {
                                   setEditingId(null);
                                   setMergeTarget("");

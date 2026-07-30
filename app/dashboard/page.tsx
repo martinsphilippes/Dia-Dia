@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AppHeader } from "@/components/AppHeader";
 import { LoginGate } from "@/components/LoginGate";
 import { useAuth } from "@/services/auth-context";
 import { listAccounts, listCategories, listTransactions } from "@/services/firestore";
@@ -32,13 +31,12 @@ const brl = (n: number) =>
 
 export default function DashboardPage() {
   return (
-    <main className="container">
-      <AppHeader />
-      <h1>Lançamentos</h1>
+    <>
+      <h1>Dashboard</h1>
       <LoginGate>
         <Dashboard />
       </LoginGate>
-    </main>
+    </>
   );
 }
 
