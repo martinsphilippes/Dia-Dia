@@ -10,6 +10,7 @@ import {
   totalsByCategory,
   totalsByMonth,
 } from "@/lib/reports/aggregate";
+import { DonutChart, CumulativeChart, PALETTE, type DonutItem } from "@/components/charts";
 import type { Category, Transaction, TransactionType } from "@/types";
 
 const brl = (n: number) =>
@@ -79,6 +80,23 @@ function Reports() {
   );
   const categoryMax = Math.max(1, ...byCategory.map((c) => c.total));
 
+  const donutItems: DonutItem[] = useMemo(() => {
+    const named = byCategory.map((c) => ({
+      label: c.categoryId ? (catName.get(c.categoryId) ?? "?") : "Sem categoria",
+      value: c.total,
+    }));
+    const top = named.slice(0, 7).map((t, i) => ({ ...t, color: PALETTE[i % PALETTE.length] }));
+    const rest = named.slice(7);
+    if (rest.length) {
+      top.push({
+        label: `Outros (${rest.length})`,
+        value: rest.reduce((s, r) => s + r.value, 0),
+        color: PALETTE[7],
+      });
+    }
+    return top;
+  }, [byCategory, catName]);
+
   if (txs === null) {
     return (
       <div className="panel">
@@ -131,6 +149,12 @@ function Reports() {
             </tbody>
           </table>
         )}
+        {byMonth.length > 0 && (
+          <>
+            <h3 style={{ marginTop: "1.5rem" }}>Evolução do saldo acumulado</h3>
+            <CumulativeChart months={byMonth} />
+          </>
+        )}
       </div>
 
       <div className="panel">
@@ -156,6 +180,10 @@ function Reports() {
         {byCategory.length === 0 ? (
           <p className="muted">Nenhum lançamento neste filtro.</p>
         ) : (
+          <>
+          <div style={{ marginBottom: "1.5rem" }}>
+            <DonutChart items={donutItems} />
+          </div>
           <table>
             <tbody>
               {byCategory.map((c) => {
@@ -176,6 +204,7 @@ function Reports() {
               })}
             </tbody>
           </table>
+          </>
         )}
       </div>
     </>
