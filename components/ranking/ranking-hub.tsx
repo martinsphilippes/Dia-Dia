@@ -33,6 +33,7 @@ export function RankingHub({ isOwner }: { isOwner: boolean }) {
   const [city, setCity] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [requested, setRequested] = useState<Set<string>>(new Set());
 
   // clube ao qual o ranking pertence
   const [clubs, setClubs] = useState<MyClub[]>([]);
@@ -103,11 +104,13 @@ export function RankingHub({ isOwner }: { isOwner: boolean }) {
     }
   }
 
-  async function join(id: string) {
+  async function requestJoin(id: string) {
     setBusy(true);
-    await supabase.rpc("join_league", { p_league_id: id });
+    setError(null);
+    const { error } = await supabase.rpc("request_league_join", { p_league_id: id, p_message: null });
     setBusy(false);
-    router.push(`/ranking/${id}`);
+    if (error) return setError(error.message);
+    setRequested((prev) => new Set(prev).add(id));
   }
 
   const notMember = open.filter((l) => !l.am_member);
@@ -278,9 +281,19 @@ export function RankingHub({ isOwner }: { isOwner: boolean }) {
                       {l.city ? `${l.city} · ` : ""}org.: {l.organizer_name} · {l.member_count} jogadores
                     </div>
                   </div>
-                  <button onClick={() => join(l.id)} className="btn-primary text-sm" disabled={busy}>
-                    Entrar
-                  </button>
+                  {requested.has(l.id) ? (
+                    <span className="rounded-full bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-700">
+                      Solicitação enviada
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => requestJoin(l.id)}
+                      className="btn-primary text-sm"
+                      disabled={busy}
+                    >
+                      Solicitar entrada
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>

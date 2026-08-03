@@ -53,6 +53,7 @@ export function LeagueView({ leagueId, meId }: { leagueId: string; meId: string 
   const [league, setLeague] = useState<LeagueDetail | null>(null);
   const [tab, setTab] = useState<Tab>("classificacao");
   const [notMember, setNotMember] = useState(false);
+  const [joinMsg, setJoinMsg] = useState<string | null>(null);
 
   const loadLeague = useCallback(async () => {
     const { data } = await supabase.rpc("get_league", { p_league_id: leagueId });
@@ -65,10 +66,17 @@ export function LeagueView({ leagueId, meId }: { leagueId: string; meId: string 
     loadLeague();
   }, [loadLeague]);
 
-  async function join() {
-    await supabase.rpc("join_league", { p_league_id: leagueId });
-    setNotMember(false);
-    loadLeague();
+  async function requestJoin() {
+    setJoinMsg(null);
+    const { error } = await supabase.rpc("request_league_join", {
+      p_league_id: leagueId,
+      p_message: null,
+    });
+    setJoinMsg(
+      error
+        ? error.message
+        : "Solicitação enviada! O organizador vai analisar e você será avisado.",
+    );
   }
 
   if (!league) {
@@ -143,11 +151,17 @@ export function LeagueView({ leagueId, meId }: { leagueId: string; meId: string 
           </div>
         )}
         {notMember && (
-          <div className="mb-4 flex items-center justify-between rounded-2xl bg-amber-100 px-4 py-3 text-sm text-amber-800">
-            <span>Você não é membro desta liga.</span>
-            <button onClick={join} className="btn-primary text-sm">
-              Entrar
-            </button>
+          <div className="mb-4 rounded-2xl bg-amber-100 px-4 py-3 text-sm text-amber-800">
+            {joinMsg ? (
+              <span>{joinMsg}</span>
+            ) : (
+              <div className="flex items-center justify-between gap-2">
+                <span>Você não participa deste ranking.</span>
+                <button onClick={requestJoin} className="btn-primary shrink-0 text-sm">
+                  Solicitar entrada
+                </button>
+              </div>
+            )}
           </div>
         )}
 
