@@ -71,28 +71,33 @@ export function NearbyLeagues() {
   return (
     <section className="rounded-3xl bg-white p-5 shadow-card">
       <h2 className="text-lg font-bold">Rankings próximos de você</h2>
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-3 space-y-2">
         <input
-          className="input h-9 flex-1 text-sm"
+          className="input w-full text-sm"
           placeholder="Cidade"
           value={city}
           onChange={(e) => setCity(e.target.value)}
         />
-        <select
-          className="input h-9 w-32 text-sm"
-          value={maxKm}
-          onChange={(e) => setMaxKm(e.target.value === "" ? "" : Number(e.target.value))}
-        >
-          <option value="">Distância</option>
-          {[25, 50, 100, 200].map((k) => (
-            <option key={k} value={k}>
-              Até {k} km
-            </option>
-          ))}
-        </select>
-        <button onClick={useLocation} className="btn-ghost h-9 text-xs">
-          📍 {coords ? "Localização ✓" : "Usar localização"}
-        </button>
+        <div className="flex gap-2">
+          <select
+            className="input flex-1 pr-8 text-sm"
+            value={maxKm}
+            onChange={(e) => setMaxKm(e.target.value === "" ? "" : Number(e.target.value))}
+          >
+            <option value="">Distância</option>
+            {[25, 50, 100, 200].map((k) => (
+              <option key={k} value={k}>
+                Até {k} km
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={useLocation}
+            className="btn-ghost shrink-0 whitespace-nowrap px-3 text-xs"
+          >
+            📍 {coords ? "Localização ✓" : "Usar localização"}
+          </button>
+        </div>
       </div>
 
       {!rows ? (
@@ -359,20 +364,22 @@ export function PossibleAthletesPanel({ leagueId }: { leagueId: string }) {
       <div className="text-sm font-bold text-amber-800">🔎 Possíveis atletas</div>
       <p className="mt-1 text-xs text-amber-700">Convide jogadores próximos e disponíveis.</p>
 
-      <div className="mt-3 flex flex-wrap gap-2">
-        <input className="input h-9 flex-1 text-sm" placeholder="Cidade" value={city} onChange={(e) => setCity(e.target.value)} />
-        <select className="input h-9 w-28 text-sm" value={maxKm} onChange={(e) => setMaxKm(e.target.value === "" ? "" : Number(e.target.value))}>
-          <option value="">Distância</option>
-          {[25, 50, 100].map((k) => (
-            <option key={k} value={k}>Até {k} km</option>
-          ))}
-        </select>
-        <select className="input h-9 w-28 text-sm" value={levelMax} onChange={(e) => setLevelMax(e.target.value === "" ? "" : Number(e.target.value))}>
-          <option value="">Classe</option>
-          {SKILL_CLASSES.map((c) => (
-            <option key={c} value={c}>Até {CLASS_LABELS[c]}</option>
-          ))}
-        </select>
+      <div className="mt-3 space-y-2">
+        <input className="input w-full text-sm" placeholder="Cidade" value={city} onChange={(e) => setCity(e.target.value)} />
+        <div className="grid grid-cols-2 gap-2">
+          <select className="input pr-8 text-sm" value={maxKm} onChange={(e) => setMaxKm(e.target.value === "" ? "" : Number(e.target.value))}>
+            <option value="">Distância</option>
+            {[25, 50, 100].map((k) => (
+              <option key={k} value={k}>Até {k} km</option>
+            ))}
+          </select>
+          <select className="input pr-8 text-sm" value={levelMax} onChange={(e) => setLevelMax(e.target.value === "" ? "" : Number(e.target.value))}>
+            <option value="">Classe</option>
+            {SKILL_CLASSES.map((c) => (
+              <option key={c} value={c}>Até {CLASS_LABELS[c]}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {msg && <p className="mt-2 text-xs text-court-700">{msg}</p>}
