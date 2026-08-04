@@ -387,15 +387,17 @@ function PlayerProfile({
 }
 
 /* -------- Head2Head -------- */
-function WinRing({ a, b, hideCenter }: { a: number; b: number; hideCenter?: boolean }) {
+function WinRing({ a, b, hideCenter, center }: { a: number; b: number; hideCenter?: boolean; center?: number }) {
   const total = a + b;
-  const frac = total ? a / total : 0;
   const r = 52;
   const c = 2 * Math.PI * r;
+  const fa = total ? a / total : 0;
+  const fb = total ? b / total : 0;
+  const centerVal = center ?? total;
   return (
     <svg viewBox="0 0 120 120" className="h-28 w-28 shrink-0">
       <circle cx="60" cy="60" r={r} fill="none" stroke="#e2e8f0" strokeWidth="14" />
-      {total > 0 && (
+      {a > 0 && (
         <circle
           cx="60"
           cy="60"
@@ -403,14 +405,25 @@ function WinRing({ a, b, hideCenter }: { a: number; b: number; hideCenter?: bool
           fill="none"
           stroke="#f59e0b"
           strokeWidth="14"
-          strokeDasharray={`${frac * c} ${c}`}
-          strokeLinecap="round"
+          strokeDasharray={`${fa * c} ${c}`}
           transform="rotate(-90 60 60)"
+        />
+      )}
+      {b > 0 && (
+        <circle
+          cx="60"
+          cy="60"
+          r={r}
+          fill="none"
+          stroke="#94a3b8"
+          strokeWidth="14"
+          strokeDasharray={`${fb * c} ${c}`}
+          transform={`rotate(${-90 + fa * 360} 60 60)`}
         />
       )}
       {!hideCenter && (
         <text x="60" y="61" textAnchor="middle" dominantBaseline="central" fontSize="30" fontWeight="800" className="fill-slate-800">
-          {a}
+          {centerVal}
         </text>
       )}
     </svg>
@@ -479,9 +492,19 @@ function H2HView({ leagueId, meId, player }: { leagueId: string; meId: string; p
         <div className="flex items-center justify-center gap-5">
           <div className="text-center">
             <div className="text-4xl font-black text-amber-600">{a?.h2h_wins ?? 0}</div>
-            <div className="text-xs font-semibold text-slate-400">Vitórias</div>
+            <div className="max-w-[80px] truncate text-xs font-semibold text-slate-400">
+              {profileA?.name?.split(" ")[0] ?? "Vitórias"}
+            </div>
           </div>
           <WinRing a={a?.h2h_wins ?? 0} b={b?.h2h_wins ?? 0} />
+          {hasOpp && (
+            <div className="text-center">
+              <div className="text-4xl font-black text-slate-500">{b?.h2h_wins ?? 0}</div>
+              <div className="max-w-[80px] truncate text-xs font-semibold text-slate-400">
+                {profileB?.name?.split(" ")[0] ?? "Vitórias"}
+              </div>
+            </div>
+          )}
         </div>
         {members !== null && (
           <div className="mt-4 flex justify-center">
