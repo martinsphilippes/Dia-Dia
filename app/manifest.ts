@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "MatchPoint — tênis e rankings",
-    short_name: "MatchPoint",
+    name: "Match — tênis e rankings",
+    short_name: "Match",
     description:
       "Encontre parceiros de tênis na sua cidade e participe de rankings e torneios do seu clube.",
     start_url: "/inicio",

@@ -8,7 +8,7 @@ export default function LoginPage() {
     <main className="court-bg flex min-h-screen flex-col items-center justify-center px-6 py-10 text-white">
       <Link href="/" className="mb-8 flex items-center gap-2 text-xl font-bold">
         <TennisBall className="h-9 w-9" />
-        MatchPoint
+        Match
       </Link>
       <div className="w-full max-w-md rounded-3xl bg-white p-7 text-ink shadow-card">
         <Suspense fallback={<div className="h-96" />}>

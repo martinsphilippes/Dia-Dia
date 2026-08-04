@@ -65,7 +65,7 @@ export function ProfileEditor({
   const [avatarUrl, setAvatarUrl] = useState<string | null>(profile.avatar_url);
   const [radius, setRadius] = useState<number>(profile.search_radius_km || 20);
 
-  // Participação no MatchPoint
+  // Participação no Match
   const [mpMode, setMpMode] = useState<MpMode>(profile.mp_mode ?? "available");
   const [mpActive, setMpActive] = useState<boolean>(profile.mp_active ?? true);
   const [mpPrice, setMpPrice] = useState<string>(
@@ -428,9 +428,9 @@ export function ProfileEditor({
         </div>
       </div>
 
-      {/* Participação no MatchPoint */}
+      {/* Participação no Match */}
       <div className="rounded-2xl border border-court-200 bg-court-50/50 p-4">
-        <label className="label">🎾 Participação no MatchPoint</label>
+        <label className="label">🎾 Participação no Match</label>
         <p className="mb-3 text-xs text-slate-500">
           Escolha como quer aparecer para quem procura parceiro de tênis.
         </p>
@@ -452,7 +452,7 @@ export function ProfileEditor({
                 <div className="text-xs text-slate-500">
                   {m === "available" && "Encontre parceiros para jogos casuais e treinos."}
                   {m === "sparring" && "Ofereça treinos/partidas cobrando pelo seu tempo."}
-                  {m === "none" && "Não aparecer nas buscas do MatchPoint."}
+                  {m === "none" && "Não aparecer nas buscas do Match."}
                 </div>
               </div>
               <span className={cx("text-lg", mpMode === m ? "text-court-600" : "text-slate-300")}>

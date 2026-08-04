@@ -1,6 +1,6 @@
 // MatchPoint Service Worker — cache inteligente + atualização automática
 // Bump CACHE_VERSION a cada release para invalidar caches antigos.
-const CACHE_VERSION = "v2";
+const CACHE_VERSION = "v3";
 const STATIC_CACHE = `mp-static-${CACHE_VERSION}`;
 const PAGE_CACHE = `mp-pages-${CACHE_VERSION}`;
 const IMG_CACHE = `mp-img-${CACHE_VERSION}`;

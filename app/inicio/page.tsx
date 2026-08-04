@@ -25,7 +25,7 @@ export default async function HubPage() {
       <header className="mx-auto flex max-w-3xl items-center justify-between">
         <div className="flex items-center gap-2 text-lg font-bold">
           <TennisBall className="h-8 w-8" />
-          MatchPoint
+          Match
         </div>
         <form action="/auth/signout" method="post">
           <button className="rounded-full px-3 py-1.5 text-sm text-court-100 ring-1 ring-white/20">
@@ -39,13 +39,13 @@ export default async function HubPage() {
         <p className="mt-1 text-court-100">O que você quer fazer hoje?</p>
 
         <div className="mt-8 grid gap-4 sm:grid-cols-2">
-          {/* MatchPoint */}
+          {/* Match */}
           <Link
             href="/matchpoint"
             className="group relative overflow-hidden rounded-3xl bg-white p-6 text-ink shadow-card transition hover:-translate-y-0.5"
           >
             <div className="text-5xl">🎾</div>
-            <h2 className="mt-4 text-xl font-bold">MatchPoint</h2>
+            <h2 className="mt-4 text-xl font-bold">Match</h2>
             <p className="mt-1 text-sm text-slate-600">
               Ache parceiros de treino e jogadores disponíveis por perto — em
               casa ou viajando. Busque, solicite e marque o jogo em minutos.

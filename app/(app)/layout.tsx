@@ -39,7 +39,7 @@ export default async function AppLayout({
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-slate-200 bg-white p-5 md:flex">
           <Link href="/inicio" className="flex items-center gap-2 px-2 text-lg font-bold">
             <TennisBall className="h-8 w-8" />
-            MatchPoint
+            Match
           </Link>
           <nav className="mt-8 flex-1">
             <SideNav unread={unread} isAdmin={isAdmin} />

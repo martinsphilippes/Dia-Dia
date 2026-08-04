@@ -39,7 +39,7 @@ export default async function LandingPage() {
       <header className="pt-safe mx-auto flex max-w-6xl items-center justify-between px-6 pb-6">
         <div className="flex items-center gap-2 text-lg font-bold">
           <TennisBall className="h-8 w-8" />
-          MatchPoint
+          Match
         </div>
         <Link href="/login" className="btn-ball text-sm">
           Entrar
@@ -57,7 +57,7 @@ export default async function LandingPage() {
           </h1>
           <p className="mt-5 max-w-md text-lg text-court-100">
             Muita gente viaja e não tem com quem jogar. Outros nem na própria
-            cidade acham parceiro. O MatchPoint conecta tenistas do mesmo nível,
+            cidade acham parceiro. O Match conecta tenistas do mesmo nível,
             no mesmo lugar.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
@@ -103,7 +103,7 @@ export default async function LandingPage() {
       <section id="como-funciona" className="bg-white py-20 text-ink">
         <div className="mx-auto max-w-6xl px-6">
           <h2 className="text-center text-3xl font-bold md:text-4xl">
-            Por que o MatchPoint?
+            Por que o Match?
           </h2>
           <div className="mt-12 grid gap-6 md:grid-cols-3">
             {features.map((f) => (
@@ -154,7 +154,7 @@ export default async function LandingPage() {
 
       <footer className="bg-white pb-10 text-center text-sm text-slate-400">
         <div className="flex items-center justify-center gap-2 font-semibold text-slate-500">
-          <TennisBall className="h-5 w-5" /> MatchPoint
+          <TennisBall className="h-5 w-5" /> Match
         </div>
         <p className="mt-2">Feito para quem ama tênis. 🎾</p>
       </footer>

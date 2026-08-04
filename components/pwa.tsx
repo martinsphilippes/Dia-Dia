@@ -100,9 +100,9 @@ export function PWA() {
     <div className="fixed inset-x-0 bottom-0 z-[60] px-3 pb-[calc(env(safe-area-inset-bottom)+12px)]">
       <div className="mx-auto flex max-w-md items-center gap-3 rounded-2xl bg-white p-3 shadow-2xl ring-1 ring-slate-200">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/icon-192.png" alt="MatchPoint" className="h-11 w-11 shrink-0 rounded-xl" />
+        <img src="/icon-192.png" alt="Match" className="h-11 w-11 shrink-0 rounded-xl" />
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-bold text-slate-800">Instalar o MatchPoint</div>
+          <div className="text-sm font-bold text-slate-800">Instalar o Match</div>
           {deferred ? (
             <div className="text-xs text-slate-500">Acesse pela tela inicial, em tela cheia.</div>
           ) : (

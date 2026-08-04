@@ -6,17 +6,17 @@ import { PWA } from "@/components/pwa";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: "MatchPoint — parceiros de tênis na sua cidade",
+  title: "Match — parceiros de tênis na sua cidade",
   description:
     "O app que conecta tenistas na mesma cidade. Viajou e não tem com quem jogar? Dê match e vá para a quadra.",
-  applicationName: "MatchPoint",
-  authors: [{ name: "MatchPoint" }],
+  applicationName: "Match",
+  authors: [{ name: "Match" }],
   keywords: ["tênis", "tennis", "parceiro de tênis", "quadra", "jogar tênis", "match"],
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "MatchPoint",
+    title: "Match",
   },
   icons: {
     icon: [
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     apple: [{ url: "/icon-180.png", sizes: "180x180", type: "image/png" }],
   },
   openGraph: {
-    title: "MatchPoint — parceiros de tênis na sua cidade",
+    title: "Match — parceiros de tênis na sua cidade",
     description:
       "Encontre alguém do seu nível para jogar tênis, na sua cidade ou onde você estiver viajando.",
     type: "website",

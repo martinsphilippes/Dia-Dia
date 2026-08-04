@@ -30,7 +30,7 @@ export default async function MatchPointPage() {
       </div>
 
       <header className="mb-4">
-        <h1 className="text-2xl font-extrabold">🎾 MatchPoint</h1>
+        <h1 className="text-2xl font-extrabold">🎾 Match</h1>
         <p className="text-sm text-slate-500">
           Ache parceiros de treino e jogadores disponíveis — perto de você ou onde estiver viajando.
         </p>
