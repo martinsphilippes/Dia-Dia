@@ -60,6 +60,11 @@ export default async function LandingPage() {
             cidade acham parceiro. O Match conecta tenistas do mesmo nível,
             no mesmo lugar.
           </p>
+          <p className="mt-3 max-w-md text-sm text-court-200">
+            E não para por aí: use o Match também para{" "}
+            <span className="font-semibold text-ball">organizar torneios e rankings</span>{" "}
+            do seu clube ou grupo.
+          </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link href="/login" className="btn-ball text-base">
               Começar agora — é grátis
