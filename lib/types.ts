@@ -502,9 +502,9 @@ export type Head2HeadRow = {
   standing_pos: number | null;
   best_pos: number | null;
   h2h_wins: number;
-  total_wins: number;
   sets_won: number;
   games_won: number;
+  played: number;
 };
 
 export type RankingPlayerProfile = {

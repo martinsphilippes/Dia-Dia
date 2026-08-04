@@ -294,10 +294,8 @@ function PlayerProfile({
   onClose: () => void;
 }) {
   const supabase = createClient();
-  const isSelf = player.player_id === meId;
-  const [tab, setTab] = useState<PTab>(isSelf ? "perfil" : "h2h");
+  const [tab, setTab] = useState<PTab>("h2h");
   const [matches, setMatches] = useState<PlayerLeagueMatch[] | null>(null);
-  const [h2h, setH2h] = useState<Head2HeadRow[] | null>(null);
   const [profile, setProfile] = useState<RankingPlayerProfile | null>(null);
   const [tours, setTours] = useState<PlayerTournament[] | null>(null);
 
@@ -308,11 +306,6 @@ function PlayerProfile({
   }, [supabase, leagueId, player.player_id]);
 
   useEffect(() => {
-    if (tab === "h2h" && h2h === null && !isSelf) {
-      supabase
-        .rpc("get_head2head", { p_league_id: leagueId, p_a: meId, p_b: player.player_id })
-        .then(({ data }) => setH2h((data as unknown as Head2HeadRow[]) ?? []));
-    }
     if (tab === "perfil" && profile === null) {
       supabase
         .rpc("get_ranking_player_profile", { p_player_id: player.player_id })
@@ -323,10 +316,10 @@ function PlayerProfile({
         .rpc("get_player_tournaments", { p_player_id: player.player_id })
         .then(({ data }) => setTours((data as unknown as PlayerTournament[]) ?? []));
     }
-  }, [tab, h2h, profile, tours, isSelf, supabase, leagueId, meId, player.player_id]);
+  }, [tab, profile, tours, supabase, player.player_id]);
 
   const tabs: [PTab, string][] = [
-    ...(isSelf ? [] : ([["h2h", "Head2Head"]] as [PTab, string][])),
+    ["h2h", "Head2Head"],
     ["perfil", "Perfil"],
     ["jogos", "Jogos"],
     ["pontuacao", "Pontuação"],
@@ -376,7 +369,7 @@ function PlayerProfile({
       </div>
 
       <div className="mx-auto max-w-2xl px-4 py-5 pb-24">
-        {tab === "h2h" && <H2HView h2h={h2h} meId={meId} playerId={player.player_id} />}
+        {tab === "h2h" && <H2HView leagueId={leagueId} meId={meId} playerId={player.player_id} />}
         {tab === "perfil" && <PerfilView profile={profile} />}
         {tab === "jogos" && <JogosView matches={matches} />}
         {tab === "pontuacao" && <PontuacaoView matches={matches} />}
@@ -386,80 +379,128 @@ function PlayerProfile({
   );
 }
 
-/* -------- Head2Head -------- */
-function H2HView({ h2h, meId, playerId }: { h2h: Head2HeadRow[] | null; meId: string; playerId: string }) {
-  if (!h2h) return <Loading />;
-  const me = h2h.find((r) => r.player_id === meId);
-  const them = h2h.find((r) => r.player_id === playerId);
-  if (!me || !them) return <Empty text="Sem dados de confronto." />;
+/* -------- Head2Head (confronto entre dois jogadores quaisquer) -------- */
+function H2HView({ leagueId, meId, playerId }: { leagueId: string; meId: string; playerId: string }) {
+  const supabase = createClient();
+  const [members, setMembers] = useState<Standing[] | null>(null);
+  const [aId, setAId] = useState(meId);
+  const [bId, setBId] = useState(playerId === meId ? "" : playerId);
+  const [h2h, setH2h] = useState<Head2HeadRow[] | null>(null);
 
-  const totalH2h = me.h2h_wins + them.h2h_wins;
-  const mePct = totalH2h ? (me.h2h_wins / totalH2h) * 100 : 50;
+  useEffect(() => {
+    supabase.rpc("get_league_standings", { p_league_id: leagueId }).then(({ data }) => {
+      const rows = (data as unknown as Standing[]) ?? [];
+      setMembers(rows);
+      setBId((cur) => cur || rows.find((r) => r.player_id !== meId)?.player_id || "");
+    });
+  }, [supabase, leagueId, meId]);
 
-  const rows: [string, number, number][] = [
-    ["Vitórias totais", me.total_wins, them.total_wins],
-    ["Sets vencidos", me.sets_won, them.sets_won],
-    ["Games vencidos", me.games_won, them.games_won],
-  ];
+  useEffect(() => {
+    if (!aId || !bId || aId === bId) {
+      setH2h(null);
+      return;
+    }
+    setH2h(null);
+    supabase
+      .rpc("get_head2head", { p_league_id: leagueId, p_a: aId, p_b: bId })
+      .then(({ data }) => setH2h((data as unknown as Head2HeadRow[]) ?? []));
+  }, [supabase, leagueId, aId, bId]);
+
+  if (!members) return <Loading />;
+
+  const a = h2h?.find((r) => r.player_id === aId);
+  const b = h2h?.find((r) => r.player_id === bId);
+  const totalH2h = (a?.h2h_wins ?? 0) + (b?.h2h_wins ?? 0);
+  const aPct = totalH2h ? ((a?.h2h_wins ?? 0) / totalH2h) * 100 : 50;
+  const label = (id: string, name: string) => (id === meId ? `${name} (você)` : name);
+  const selectCls = "min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm";
 
   return (
     <div className="space-y-5">
-      {/* Confronto direto — destaque */}
-      <div className="rounded-3xl bg-white p-5 shadow-card">
-        <div className="text-center text-xs font-bold uppercase tracking-wide text-slate-400">Confronto direto</div>
-        <div className="mt-4 flex items-end justify-between gap-3">
-          <div className="flex-1 text-center">
-            <div className="text-xs font-semibold text-slate-500">Você</div>
-            <div className={cx("text-6xl font-black", me.h2h_wins >= them.h2h_wins ? "text-amber-600" : "text-slate-300")}>
-              {me.h2h_wins}
-            </div>
-          </div>
-          <div className="pb-4 text-lg font-black text-slate-300">×</div>
-          <div className="flex-1 text-center">
-            <div className="truncate text-xs font-semibold text-slate-500">{them.name.split(" ")[0]}</div>
-            <div className={cx("text-6xl font-black", them.h2h_wins > me.h2h_wins ? "text-amber-600" : "text-slate-300")}>
-              {them.h2h_wins}
-            </div>
-          </div>
+      {/* Seletores de jogadores */}
+      <div className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-100">
+        <div className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-400">Comparar jogadores</div>
+        <div className="flex items-center gap-2">
+          <select className={selectCls} value={aId} onChange={(e) => setAId(e.target.value)}>
+            {members.map((m) => (
+              <option key={m.player_id} value={m.player_id}>{label(m.player_id, m.name)}</option>
+            ))}
+          </select>
+          <span className="shrink-0 text-sm font-black text-slate-300">×</span>
+          <select className={selectCls} value={bId} onChange={(e) => setBId(e.target.value)}>
+            <option value="">Escolher…</option>
+            {members.map((m) => (
+              <option key={m.player_id} value={m.player_id}>{label(m.player_id, m.name)}</option>
+            ))}
+          </select>
         </div>
-        <div className="mt-4 flex h-3 overflow-hidden rounded-full bg-slate-100">
-          <div className="bg-amber-500" style={{ width: `${mePct}%` }} />
-          <div className="bg-slate-300" style={{ width: `${100 - mePct}%` }} />
-        </div>
-        <div className="mt-2 text-center text-xs text-slate-400">
-          {totalH2h === 0 ? "Vocês ainda não se enfrentaram nesta liga." : `${totalH2h} jogo(s) entre vocês`}
-        </div>
+        {aId === bId && bId && <p className="mt-2 text-xs text-red-500">Escolha dois jogadores diferentes.</p>}
       </div>
 
-      {/* Comparações */}
-      <div className="rounded-3xl bg-white p-2 shadow-card">
-        {rows.map(([label, a, b]) => (
-          <div key={label} className="flex items-center gap-3 border-b border-slate-50 px-3 py-3 last:border-0">
-            <div className={cx("w-12 text-right text-lg font-extrabold", a >= b ? "text-amber-700" : "text-slate-400")}>{a}</div>
-            <div className="flex-1 text-center text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</div>
-            <div className={cx("w-12 text-left text-lg font-extrabold", b > a ? "text-amber-700" : "text-slate-400")}>{b}</div>
+      {!aId || !bId || aId === bId ? (
+        <Empty text="Selecione dois jogadores para ver o confronto." />
+      ) : !h2h || !a || !b ? (
+        <Loading />
+      ) : (
+        <>
+          {/* Confronto direto — destaque */}
+          <div className="rounded-3xl bg-white p-5 shadow-card">
+            <div className="text-center text-xs font-bold uppercase tracking-wide text-slate-400">Confronto direto</div>
+            <div className="mt-4 flex items-end justify-between gap-3">
+              <div className="flex-1 text-center">
+                <div className="truncate text-xs font-semibold text-slate-500">{aId === meId ? "Você" : a.name.split(" ")[0]}</div>
+                <div className={cx("text-6xl font-black", a.h2h_wins > b.h2h_wins ? "text-amber-600" : "text-slate-300")}>{a.h2h_wins}</div>
+              </div>
+              <div className="pb-4 text-lg font-black text-slate-300">×</div>
+              <div className="flex-1 text-center">
+                <div className="truncate text-xs font-semibold text-slate-500">{bId === meId ? "Você" : b.name.split(" ")[0]}</div>
+                <div className={cx("text-6xl font-black", b.h2h_wins > a.h2h_wins ? "text-amber-600" : "text-slate-300")}>{b.h2h_wins}</div>
+              </div>
+            </div>
+            <div className="mt-4 flex h-3 overflow-hidden rounded-full bg-slate-100">
+              <div className="bg-amber-500" style={{ width: `${aPct}%` }} />
+              <div className="bg-slate-300" style={{ width: `${100 - aPct}%` }} />
+            </div>
+            <div className="mt-2 text-center text-xs text-slate-400">
+              {a.played === 0 ? "Eles ainda não se enfrentaram nesta liga." : `${a.played} jogo(s) entre os dois`}
+            </div>
           </div>
-        ))}
-        <div className="flex items-center gap-3 border-b border-slate-50 px-3 py-3">
-          <div className="w-12 text-right text-lg font-extrabold text-slate-600">{me.standing_pos ?? "—"}º</div>
-          <div className="flex-1 text-center text-xs font-semibold uppercase tracking-wide text-slate-400">Posição atual</div>
-          <div className="w-12 text-left text-lg font-extrabold text-slate-600">{them.standing_pos ?? "—"}º</div>
-        </div>
-        <div className="flex items-center gap-3 px-3 py-3">
-          <div className={cx("w-12 text-right text-lg font-extrabold", (me.best_pos ?? 99) <= (them.best_pos ?? 99) ? "text-amber-700" : "text-slate-400")}>
-            {me.best_pos ?? "—"}º
+
+          {/* Estatísticas — apenas dos jogos entre os dois */}
+          <div className="rounded-3xl bg-white p-2 shadow-card">
+            <div className="px-3 pt-2 text-center text-[11px] text-slate-400">Estatísticas dos jogos entre os dois</div>
+            {(
+              [
+                ["Sets vencidos", a.sets_won, b.sets_won],
+                ["Games vencidos", a.games_won, b.games_won],
+              ] as [string, number, number][]
+            ).map(([lbl, av, bv]) => (
+              <div key={lbl} className="flex items-center gap-3 border-b border-slate-50 px-3 py-3">
+                <div className={cx("w-12 text-right text-lg font-extrabold", av > bv ? "text-amber-700" : "text-slate-400")}>{av}</div>
+                <div className="flex-1 text-center text-xs font-semibold uppercase tracking-wide text-slate-400">{lbl}</div>
+                <div className={cx("w-12 text-left text-lg font-extrabold", bv > av ? "text-amber-700" : "text-slate-400")}>{bv}</div>
+              </div>
+            ))}
+            {/* Contexto de cada jogador */}
+            <div className="px-3 pb-1 pt-3 text-center text-[11px] text-slate-400">No ranking</div>
+            <div className="flex items-center gap-3 border-b border-slate-50 px-3 py-3">
+              <div className="w-12 text-right text-lg font-extrabold text-slate-600">{a.standing_pos ?? "—"}º</div>
+              <div className="flex-1 text-center text-xs font-semibold uppercase tracking-wide text-slate-400">Posição atual</div>
+              <div className="w-12 text-left text-lg font-extrabold text-slate-600">{b.standing_pos ?? "—"}º</div>
+            </div>
+            <div className="flex items-center gap-3 border-b border-slate-50 px-3 py-3">
+              <div className={cx("w-12 text-right text-lg font-extrabold", (a.best_pos ?? 99) < (b.best_pos ?? 99) ? "text-amber-700" : "text-slate-400")}>{a.best_pos ?? "—"}º</div>
+              <div className="flex-1 text-center text-xs font-semibold uppercase tracking-wide text-slate-400">Melhor posição</div>
+              <div className={cx("w-12 text-left text-lg font-extrabold", (b.best_pos ?? 99) < (a.best_pos ?? 99) ? "text-amber-700" : "text-slate-400")}>{b.best_pos ?? "—"}º</div>
+            </div>
+            <div className="flex items-center gap-3 px-3 py-3">
+              <div className="w-12 text-right text-sm font-bold text-slate-600">{CLASS_LABELS[a.skill_class]}</div>
+              <div className="flex-1 text-center text-xs font-semibold uppercase tracking-wide text-slate-400">Classe</div>
+              <div className="w-12 text-left text-sm font-bold text-slate-600">{CLASS_LABELS[b.skill_class]}</div>
+            </div>
           </div>
-          <div className="flex-1 text-center text-xs font-semibold uppercase tracking-wide text-slate-400">Melhor posição</div>
-          <div className={cx("w-12 text-left text-lg font-extrabold", (them.best_pos ?? 99) < (me.best_pos ?? 99) ? "text-amber-700" : "text-slate-400")}>
-            {them.best_pos ?? "—"}º
-          </div>
-        </div>
-        <div className="flex items-center gap-3 px-3 py-3">
-          <div className="w-12 text-right text-sm font-bold text-slate-600">{CLASS_LABELS[me.skill_class]}</div>
-          <div className="flex-1 text-center text-xs font-semibold uppercase tracking-wide text-slate-400">Classe</div>
-          <div className="w-12 text-left text-sm font-bold text-slate-600">{CLASS_LABELS[them.skill_class]}</div>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 }
