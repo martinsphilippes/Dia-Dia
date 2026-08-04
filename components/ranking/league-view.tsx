@@ -1260,6 +1260,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function About({ league, onChange }: { league: LeagueDetail; onChange: () => void }) {
   const supabase = createClient();
   const [edit, setEdit] = useState(false);
+  const [name, setName] = useState(league.name || "");
   const [desc, setDesc] = useState(league.description || "");
   const [about, setAbout] = useState(league.about_text || "");
   const [prefix, setPrefix] = useState(league.round_prefix || "");
@@ -1270,6 +1271,7 @@ function About({ league, onChange }: { league: LeagueDetail; onChange: () => voi
     setBusy(true);
     await supabase.rpc("update_league", {
       p_league_id: league.id,
+      p_name: name,
       p_description: desc,
       p_about_text: about,
       p_round_prefix: prefix,
@@ -1282,6 +1284,10 @@ function About({ league, onChange }: { league: LeagueDetail; onChange: () => voi
   if (edit) {
     return (
       <form onSubmit={save} className="space-y-3">
+        <div>
+          <label className="label">Nome do ranking</label>
+          <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
+        </div>
         <div>
           <label className="label">Descrição curta</label>
           <input className="input" value={desc} onChange={(e) => setDesc(e.target.value)} />

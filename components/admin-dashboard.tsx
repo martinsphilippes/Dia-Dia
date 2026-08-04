@@ -32,6 +32,8 @@ export function AdminDashboard() {
   const [tournaments, setTournaments] = useState<AdminTournamentRow[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [editTourId, setEditTourId] = useState<string | null>(null);
+  const [editTourName, setEditTourName] = useState("");
 
   const load = useCallback(async () => {
     const [{ data: p }, { data: m }, { data: a }, { data: tr }] = await Promise.all([
@@ -63,6 +65,17 @@ export function AdminDashboard() {
     setBusy(id);
     const { error } = await supabase.rpc("admin_delete_league", { p_league_id: id });
     if (error) alert(error.message);
+    await load();
+    setBusy(null);
+  }
+
+  async function saveTournamentName(id: string) {
+    const nm = editTourName.trim();
+    if (!nm) return;
+    setBusy(id);
+    const { error } = await supabase.rpc("set_tournament_name", { p_tournament_id: id, p_name: nm });
+    if (error) alert(error.message);
+    setEditTourId(null);
     await load();
     setBusy(null);
   }
@@ -314,27 +327,64 @@ export function AdminDashboard() {
                 key={tr.id}
                 className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3"
               >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold">{tr.name}</span>
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">
-                      {TOURNAMENT_STATUS_LABELS[tr.status as TournamentStatus] ?? tr.status}
-                    </span>
-                  </div>
-                  <div className="text-xs text-slate-500">
-                    {tr.city ? `${tr.city} · ` : ""}organizador: {tr.organizer_name} · {fmtDate(tr.created_at)}
-                  </div>
-                  <div className="text-xs text-slate-400">
-                    {tr.category_count} categoria(s) · {tr.entry_count} inscrito(s)
-                  </div>
+                <div className="min-w-0 flex-1">
+                  {editTourId === tr.id ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        className="w-full max-w-xs rounded-lg border border-slate-300 px-2 py-1 text-sm"
+                        value={editTourName}
+                        onChange={(e) => setEditTourName(e.target.value)}
+                        autoFocus
+                      />
+                      <button
+                        onClick={() => saveTournamentName(tr.id)}
+                        disabled={busy === tr.id}
+                        className="rounded-full bg-court-600 px-3 py-1 text-xs font-semibold text-white"
+                      >
+                        Salvar
+                      </button>
+                      <button onClick={() => setEditTourId(null)} className="text-xs font-semibold text-slate-400">
+                        Cancelar
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">{tr.name}</span>
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">
+                          {TOURNAMENT_STATUS_LABELS[tr.status as TournamentStatus] ?? tr.status}
+                        </span>
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        {tr.city ? `${tr.city} · ` : ""}organizador: {tr.organizer_name} · {fmtDate(tr.created_at)}
+                      </div>
+                      <div className="text-xs text-slate-400">
+                        {tr.category_count} categoria(s) · {tr.entry_count} inscrito(s)
+                      </div>
+                    </>
+                  )}
                 </div>
-                <button
-                  onClick={() => removeTournament(tr.id, tr.name, tr.entry_count)}
-                  disabled={busy === tr.id}
-                  className="shrink-0 rounded-full bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 ring-1 ring-red-200"
-                >
-                  {busy === tr.id ? "..." : "Excluir"}
-                </button>
+                {editTourId !== tr.id && (
+                  <div className="flex shrink-0 gap-2">
+                    <button
+                      onClick={() => {
+                        setEditTourId(tr.id);
+                        setEditTourName(tr.name);
+                      }}
+                      disabled={busy === tr.id}
+                      className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => removeTournament(tr.id, tr.name, tr.entry_count)}
+                      disabled={busy === tr.id}
+                      className="rounded-full bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 ring-1 ring-red-200"
+                    >
+                      {busy === tr.id ? "..." : "Excluir"}
+                    </button>
+                  </div>
+                )}
               </li>
             ))}
           </ul>
