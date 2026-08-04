@@ -440,10 +440,19 @@ function H2HView({ h2h, meId, playerId }: { h2h: Head2HeadRow[] | null; meId: st
             <div className={cx("w-12 text-left text-lg font-extrabold", b > a ? "text-amber-700" : "text-slate-400")}>{b}</div>
           </div>
         ))}
-        <div className="flex items-center gap-3 px-3 py-3">
+        <div className="flex items-center gap-3 border-b border-slate-50 px-3 py-3">
           <div className="w-12 text-right text-lg font-extrabold text-slate-600">{me.standing_pos ?? "—"}º</div>
-          <div className="flex-1 text-center text-xs font-semibold uppercase tracking-wide text-slate-400">Posição no ranking</div>
+          <div className="flex-1 text-center text-xs font-semibold uppercase tracking-wide text-slate-400">Posição atual</div>
           <div className="w-12 text-left text-lg font-extrabold text-slate-600">{them.standing_pos ?? "—"}º</div>
+        </div>
+        <div className="flex items-center gap-3 px-3 py-3">
+          <div className={cx("w-12 text-right text-lg font-extrabold", (me.best_pos ?? 99) <= (them.best_pos ?? 99) ? "text-amber-700" : "text-slate-400")}>
+            {me.best_pos ?? "—"}º
+          </div>
+          <div className="flex-1 text-center text-xs font-semibold uppercase tracking-wide text-slate-400">Melhor posição</div>
+          <div className={cx("w-12 text-left text-lg font-extrabold", (them.best_pos ?? 99) < (me.best_pos ?? 99) ? "text-amber-700" : "text-slate-400")}>
+            {them.best_pos ?? "—"}º
+          </div>
         </div>
         <div className="flex items-center gap-3 px-3 py-3">
           <div className="w-12 text-right text-sm font-bold text-slate-600">{CLASS_LABELS[me.skill_class]}</div>

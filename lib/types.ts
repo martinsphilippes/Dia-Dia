@@ -500,6 +500,7 @@ export type Head2HeadRow = {
   avatar_url: string | null;
   skill_class: SkillClass;
   standing_pos: number | null;
+  best_pos: number | null;
   h2h_wins: number;
   total_wins: number;
   sets_won: number;
