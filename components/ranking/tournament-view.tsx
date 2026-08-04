@@ -240,27 +240,6 @@ export function TournamentView({
           ) : cats.length === 0 ? (
             <p className="mt-3 text-sm text-slate-500">Sem categorias ainda.</p>
           ) : null}
-
-          {/* Selecionar categoria para visualizar (inscritos, chaves, jogos) */}
-          {cats.length > 0 && (
-            <div className="mt-4 border-t border-slate-100 pt-3">
-              <p className="mb-2 text-xs font-semibold uppercase text-slate-400">Ver categoria</p>
-              <div className="flex flex-wrap gap-2">
-                {cats.map((c) => (
-                  <button
-                    key={c.id}
-                    onClick={() => setSelCat(c.id)}
-                    className={cx(
-                      "rounded-full px-4 py-2 text-sm font-semibold transition",
-                      selCat === c.id ? "bg-amber-600 text-white" : "bg-slate-100 text-slate-600"
-                    )}
-                  >
-                    {c.name} · {Number(c.entry_count)}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Inscritos + pagamento (gestores) */}
