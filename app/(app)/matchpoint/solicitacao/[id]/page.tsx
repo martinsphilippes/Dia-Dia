@@ -16,8 +16,8 @@ export default async function RequestPage({ params }: { params: { id: string } }
     <div className="pt-safe mx-auto max-w-lg px-4 pb-24 md:pb-8">
       <div className="mb-3 flex items-center gap-4">
         <BackButton />
-        <a href="/matchpoint" className="inline-block text-sm font-semibold text-slate-500">
-          🎾 MatchPoint
+        <a href="/inicio" className="inline-block text-sm font-semibold text-slate-500">
+          🏠 Início
         </a>
       </div>
       <h1 className="mb-4 text-2xl font-extrabold">Solicitação de partida</h1>

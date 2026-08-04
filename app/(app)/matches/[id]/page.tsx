@@ -64,6 +64,13 @@ export default async function ChatPage({
         >
           <IconBack className="h-5 w-5" />
         </Link>
+        <Link
+          href="/inicio"
+          className="grid h-9 w-9 place-items-center rounded-full text-base text-slate-500 hover:bg-slate-100"
+          aria-label="Início"
+        >
+          🏠
+        </Link>
         {otherProfile.avatar_url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
