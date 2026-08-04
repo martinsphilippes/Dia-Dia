@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { NearbyLeagues, MyInvites } from "@/components/ranking/discovery";
 import { NotificationsBell } from "@/components/matchpoint/notifications-bell";
 import { cachedRpc, invalidateCache } from "@/lib/cache";
+import { PlaceAutocomplete } from "@/components/place-autocomplete";
 
 const CLUBS_CACHE_KEY = "mp:my_clubs";
 import {
@@ -246,7 +247,7 @@ export function RankingHub({ isOwner }: { isOwner: boolean }) {
                   <label className="label">Nome do ranking</label>
                   <input className="input" placeholder="Ex.: Ranking Masculino" value={name} onChange={(e) => setName(e.target.value)} />
                 </div>
-                <input className="input" placeholder="Cidade (opcional)" value={city} onChange={(e) => setCity(e.target.value)} />
+                <PlaceAutocomplete cityOnly className="input" placeholder="Cidade (opcional)" value={city} onChange={setCity} />
                 {error && <p className="text-sm text-red-600">{error}</p>}
                 <div className="flex gap-2">
                   <button type="submit" className="btn-primary flex-1" disabled={busy}>
@@ -420,7 +421,7 @@ function CreateForm({
   return (
     <form onSubmit={onSubmit} className="mt-4 space-y-3 rounded-2xl bg-amber-50 p-4">
       <input className="input" placeholder={`Nome do ${label}`} value={name} onChange={(e) => setName(e.target.value)} />
-      <input className="input" placeholder="Cidade (opcional)" value={city} onChange={(e) => setCity(e.target.value)} />
+      <PlaceAutocomplete cityOnly className="input" placeholder="Cidade (opcional)" value={city} onChange={setCity} />
       {error && <p className="text-sm text-red-600">{error}</p>}
       <div className="flex gap-2">
         <button type="submit" className="btn-primary flex-1" disabled={busy}>

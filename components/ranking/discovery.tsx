@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { PlaceAutocomplete } from "@/components/place-autocomplete";
 import {
   ACCEPT_INVITES_LABELS,
   AcceptInvites,
@@ -72,12 +73,7 @@ export function NearbyLeagues() {
     <section className="rounded-3xl bg-white p-5 shadow-card">
       <h2 className="text-lg font-bold">Rankings próximos de você</h2>
       <div className="mt-3 space-y-2">
-        <input
-          className="input w-full text-sm"
-          placeholder="Cidade"
-          value={city}
-          onChange={(e) => setCity(e.target.value)}
-        />
+        <PlaceAutocomplete cityOnly className="input w-full text-sm" placeholder="Cidade" value={city} onChange={setCity} />
         <div className="flex gap-2">
           <select
             className="input flex-1 pr-8 text-sm"
@@ -365,7 +361,7 @@ export function PossibleAthletesPanel({ leagueId }: { leagueId: string }) {
       <p className="mt-1 text-xs text-amber-700">Convide jogadores próximos e disponíveis.</p>
 
       <div className="mt-3 space-y-2">
-        <input className="input w-full text-sm" placeholder="Cidade" value={city} onChange={(e) => setCity(e.target.value)} />
+        <PlaceAutocomplete cityOnly className="input w-full text-sm" placeholder="Cidade" value={city} onChange={setCity} />
         <div className="grid grid-cols-2 gap-2">
           <select className="input pr-8 text-sm" value={maxKm} onChange={(e) => setMaxKm(e.target.value === "" ? "" : Number(e.target.value))}>
             <option value="">Distância</option>

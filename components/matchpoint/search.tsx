@@ -8,6 +8,7 @@ import { cx, initials } from "@/lib/utils";
 import { useDebouncedValue } from "@/lib/use-debounce";
 import { useIncremental } from "@/lib/use-incremental";
 import { RowSkeletons } from "@/components/skeleton";
+import { PlaceAutocomplete } from "@/components/place-autocomplete";
 
 function brl(cents: number | null) {
   if (!cents) return null;
@@ -93,7 +94,7 @@ export function MatchPointSearch({ me }: { me: Profile }) {
           ))}
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <input className="input text-sm" placeholder="Cidade" value={city} onChange={(e) => setCity(e.target.value)} />
+          <PlaceAutocomplete cityOnly className="input text-sm" placeholder="Cidade" value={city} onChange={setCity} />
           <input className="input text-sm" placeholder="Clube" value={club} onChange={(e) => setClub(e.target.value)} />
           <select className="input text-sm" value={levelMax} onChange={(e) => setLevelMax(e.target.value === "" ? "" : Number(e.target.value))}>
             <option value="">Qualquer classe</option>
@@ -231,7 +232,7 @@ function RequestForm({ me, onClose }: { me: Profile; onClose: () => void }) {
             <p className="text-xs text-slate-500">
               Avisamos automaticamente os jogadores compatíveis perto de você.
             </p>
-            <input className="input" placeholder="Cidade" value={city} onChange={(e) => setCity(e.target.value)} />
+            <PlaceAutocomplete cityOnly className="input" placeholder="Cidade" value={city} onChange={setCity} />
             <input className="input" placeholder="Clube (opcional)" value={club} onChange={(e) => setClub(e.target.value)} />
             <input type="datetime-local" className="input" value={when} onChange={(e) => setWhen(e.target.value)} />
             <select className="input" value={modality} onChange={(e) => setModality(e.target.value as "" | "simples" | "duplas")}>

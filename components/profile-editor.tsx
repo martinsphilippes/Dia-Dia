@@ -22,6 +22,7 @@ import {
   WEEKDAY_LABELS,
 } from "@/lib/types";
 import { cx, initials } from "@/lib/utils";
+import { PlaceAutocomplete } from "@/components/place-autocomplete";
 
 const FORMATS: PlayFormat[] = ["simples", "duplas", "ambos"];
 const HANDS: DominantHand[] = ["destro", "canhoto"];
@@ -95,6 +96,7 @@ export function ProfileEditor({
   const [lat, setLat] = useState<number | null>(profile.latitude);
   const [lng, setLng] = useState<number | null>(profile.longitude);
   const [cityLabel, setCityLabel] = useState<string | null>(profile.city);
+  const [placeQuery, setPlaceQuery] = useState<string>(profile.city ?? "");
   const [locating, setLocating] = useState(false);
   const [locError, setLocError] = useState<string | null>(null);
 
@@ -324,12 +326,12 @@ export function ProfileEditor({
         </div>
       </div>
 
-      {/* Localização em tempo real */}
+      {/* Localização */}
       <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
         <label className="label">📍 Sua localização</label>
         <p className="mb-3 text-xs text-slate-500">
-          Nada de digitar endereço — usamos sua localização atual pra achar
-          tenistas por perto. Viajou? É só atualizar aqui no destino.
+          Usamos sua localização pra achar tenistas por perto. Use o GPS ou
+          busque por cidade/endereço.
         </p>
         <button
           type="button"
@@ -340,13 +342,29 @@ export function ProfileEditor({
           {locating
             ? "Localizando..."
             : hasLocation
-              ? "Atualizar localização"
+              ? "Atualizar pela localização atual"
               : "Usar minha localização"}
         </button>
+
+        <div className="mt-3">
+          <div className="mb-1 text-xs font-semibold text-slate-500">Ou busque uma cidade/endereço</div>
+          <PlaceAutocomplete
+            value={placeQuery}
+            onChange={setPlaceQuery}
+            placeholder="Ex.: Salvador — comece a digitar"
+            onSelect={(p) => {
+              setLat(p.lat);
+              setLng(p.lon);
+              if (p.city) setCityLabel(p.city);
+              if (p.state) setUf(p.state);
+            }}
+          />
+        </div>
+
         {hasLocation && (
           <p className="mt-3 flex items-center gap-2 text-sm font-medium text-court-700">
             <span>✅ Localização definida</span>
-            {cityLabel && <span className="text-slate-500">· {cityLabel}</span>}
+            {cityLabel && <span className="text-slate-500">· {cityLabel}{uf ? ` - ${uf}` : ""}</span>}
           </p>
         )}
         {locError && <p className="mt-3 text-sm text-red-600">{locError}</p>}
