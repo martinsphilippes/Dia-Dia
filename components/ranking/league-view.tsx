@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { cx, initials } from "@/lib/utils";
+import { calcAge, cx, initials } from "@/lib/utils";
 import { ResultForm, formatGames } from "@/components/ranking/result-form";
 import { CourtScheduler } from "@/components/ranking/court-scheduler";
 import { CourtsConfig } from "@/components/ranking/courts-config";
@@ -15,6 +15,9 @@ import {
 } from "@/components/ranking/discovery";
 import {
   CLASS_LABELS,
+  FORMAT_LABELS,
+  HAND_LABELS,
+  Head2HeadRow,
   LeagueDetail,
   LeagueMember,
   MATCH_STATUS_LABELS,
@@ -23,6 +26,8 @@ import {
   MyLeagueMatch,
   MyPointsRow,
   PlayerLeagueMatch,
+  PlayerTournament,
+  RankingPlayerProfile,
   RoundInfo,
   RoundMatch,
   Standing,
@@ -264,23 +269,37 @@ function Standings({ leagueId, meId }: { leagueId: string; meId: string }) {
       <p className="mt-3 text-center text-[11px] text-slate-400">
         Toque em um jogador para ver os jogos e a pontuação dele.
       </p>
-      {sel && <PlayerDetail leagueId={leagueId} player={sel} onClose={() => setSel(null)} />}
+      {sel && <PlayerProfile leagueId={leagueId} meId={meId} player={sel} onClose={() => setSel(null)} />}
     </div>
   );
 }
 
-/* ---------------- Detalhe público de um jogador ---------------- */
-function PlayerDetail({
+/* ---------------- Página pública de um jogador (abas) ---------------- */
+type PTab = "h2h" | "perfil" | "jogos" | "pontuacao" | "torneios";
+
+function outcome(m: PlayerLeagueMatch): "win" | "loss" | null {
+  if (m.status !== "jogado" || m.sets_player == null || m.sets_opp == null) return null;
+  return m.sets_player > m.sets_opp ? "win" : "loss";
+}
+
+function PlayerProfile({
   leagueId,
+  meId,
   player,
   onClose,
 }: {
   leagueId: string;
+  meId: string;
   player: Standing;
   onClose: () => void;
 }) {
   const supabase = createClient();
+  const isSelf = player.player_id === meId;
+  const [tab, setTab] = useState<PTab>(isSelf ? "perfil" : "h2h");
   const [matches, setMatches] = useState<PlayerLeagueMatch[] | null>(null);
+  const [h2h, setH2h] = useState<Head2HeadRow[] | null>(null);
+  const [profile, setProfile] = useState<RankingPlayerProfile | null>(null);
+  const [tours, setTours] = useState<PlayerTournament[] | null>(null);
 
   useEffect(() => {
     supabase
@@ -288,95 +307,343 @@ function PlayerDetail({
       .then(({ data }) => setMatches((data as unknown as PlayerLeagueMatch[]) ?? []));
   }, [supabase, leagueId, player.player_id]);
 
-  const played = (matches ?? []).filter((m) => m.status === "jogado");
-  const total = played.slice(0, 10).reduce((s, m) => s + Number(m.points), 0);
+  useEffect(() => {
+    if (tab === "h2h" && h2h === null && !isSelf) {
+      supabase
+        .rpc("get_head2head", { p_league_id: leagueId, p_a: meId, p_b: player.player_id })
+        .then(({ data }) => setH2h((data as unknown as Head2HeadRow[]) ?? []));
+    }
+    if (tab === "perfil" && profile === null) {
+      supabase
+        .rpc("get_ranking_player_profile", { p_player_id: player.player_id })
+        .then(({ data }) => setProfile(((data as unknown as RankingPlayerProfile[]) ?? [])[0] ?? null));
+    }
+    if (tab === "torneios" && tours === null) {
+      supabase
+        .rpc("get_player_tournaments", { p_player_id: player.player_id })
+        .then(({ data }) => setTours((data as unknown as PlayerTournament[]) ?? []));
+    }
+  }, [tab, h2h, profile, tours, isSelf, supabase, leagueId, meId, player.player_id]);
+
+  const tabs: [PTab, string][] = [
+    ...(isSelf ? [] : ([["h2h", "Head2Head"]] as [PTab, string][])),
+    ["perfil", "Perfil"],
+    ["jogos", "Jogos"],
+    ["pontuacao", "Pontuação"],
+    ["torneios", "Torneios"],
+  ];
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-end bg-black/40 sm:place-items-center" onClick={onClose}>
-      <div
-        className="pb-safe-sheet max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-white p-5 sm:rounded-3xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Cabeçalho do jogador */}
-        <div className="flex items-center gap-3">
-          {player.avatar_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={player.avatar_url} alt="" className="h-14 w-14 rounded-full object-cover" />
-          ) : (
-            <div className="grid h-14 w-14 place-items-center rounded-full bg-amber-100 font-bold text-amber-700">
-              {initials(player.name)}
-            </div>
-          )}
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-lg font-extrabold">{player.name}</div>
-            <div className="text-xs text-slate-500">
-              {player.pos}º lugar · {CLASS_LABELS[player.skill_class]}
-              {player.city ? ` · ${player.city}` : ""}
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-amber-50/40">
+      <header className="pt-safe bg-gradient-to-br from-amber-500 to-amber-700 px-5 pb-5 text-white">
+        <div className="mx-auto max-w-2xl">
+          <button onClick={onClose} className="text-sm font-semibold text-amber-50">← Voltar à classificação</button>
+          <div className="mt-4 flex items-center gap-3">
+            {player.avatar_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={player.avatar_url} alt="" className="h-16 w-16 rounded-full object-cover ring-2 ring-white/40" />
+            ) : (
+              <div className="grid h-16 w-16 place-items-center rounded-full bg-white/20 text-xl font-bold">
+                {initials(player.name)}
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-xl font-extrabold">{player.name}</div>
+              <div className="text-sm text-amber-50">
+                {player.pos}º lugar · {CLASS_LABELS[player.skill_class]}
+              </div>
             </div>
           </div>
-          <button onClick={onClose} className="text-xl text-slate-400">✕</button>
         </div>
+      </header>
 
-        {/* Pontuação */}
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <div className="rounded-2xl bg-amber-50 p-3 text-center">
-            <div className="text-2xl font-extrabold text-amber-700">{total}</div>
-            <div className="text-[11px] text-amber-600">pontos (últimas 10)</div>
-          </div>
-          <div className="rounded-2xl bg-slate-50 p-3 text-center">
-            <div className="text-2xl font-extrabold text-slate-700">{played.length}</div>
-            <div className="text-[11px] text-slate-500">jogos disputados</div>
-          </div>
-        </div>
-
-        {/* Jogos por rodada */}
-        <div className="mt-4">
-          <div className="mb-2 text-sm font-bold text-slate-700">Rodadas e jogos</div>
-          {!matches ? (
-            <Loading />
-          ) : matches.length === 0 ? (
-            <Empty text="Este jogador ainda não tem jogos." />
-          ) : (
-            <ul className="space-y-2">
-              {matches.map((m) => {
-                const gamesLabel = formatGames(m.games);
-                const isPlayed = m.status === "jogado";
-                return (
-                  <li key={m.match_id} className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="text-xs font-semibold text-slate-400">Rodada {m.round_number}</div>
-                        <div className="truncate text-sm font-medium">vs {m.opponent_name}</div>
-                        {m.scheduled_at && !isPlayed && (
-                          <div className="text-[11px] text-slate-500">
-                            📅 {new Date(m.scheduled_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
-                            {m.location ? ` · ${m.location}` : ""}
-                          </div>
-                        )}
-                      </div>
-                      <div className="shrink-0 text-right">
-                        {isPlayed ? (
-                          <>
-                            <div className="text-lg font-extrabold">
-                              {m.sets_player}<span className="mx-0.5 text-slate-300">x</span>{m.sets_opp}
-                            </div>
-                            {gamesLabel && <div className="text-[10px] text-slate-400">{gamesLabel}</div>}
-                            <div className="text-[11px] font-semibold text-amber-700">+{Number(m.points)} pts</div>
-                          </>
-                        ) : (
-                          <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase text-slate-600">
-                            {MATCH_STATUS_LABELS[m.status]}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+      {/* Abas */}
+      <div className="sticky top-0 z-10 border-b border-amber-100 bg-white/95 backdrop-blur">
+        <div className="mx-auto flex max-w-2xl gap-1 overflow-x-auto px-3 py-2">
+          {tabs.map(([k, l]) => (
+            <button
+              key={k}
+              onClick={() => setTab(k)}
+              className={cx(
+                "shrink-0 rounded-full px-3.5 py-1.5 text-sm font-semibold transition",
+                tab === k ? "bg-amber-600 text-white" : "text-slate-500 hover:bg-amber-50",
+              )}
+            >
+              {l}
+            </button>
+          ))}
         </div>
       </div>
+
+      <div className="mx-auto max-w-2xl px-4 py-5 pb-24">
+        {tab === "h2h" && <H2HView h2h={h2h} meId={meId} playerId={player.player_id} />}
+        {tab === "perfil" && <PerfilView profile={profile} />}
+        {tab === "jogos" && <JogosView matches={matches} />}
+        {tab === "pontuacao" && <PontuacaoView matches={matches} />}
+        {tab === "torneios" && <TorneiosView tours={tours} />}
+      </div>
+    </div>
+  );
+}
+
+/* -------- Head2Head -------- */
+function H2HView({ h2h, meId, playerId }: { h2h: Head2HeadRow[] | null; meId: string; playerId: string }) {
+  if (!h2h) return <Loading />;
+  const me = h2h.find((r) => r.player_id === meId);
+  const them = h2h.find((r) => r.player_id === playerId);
+  if (!me || !them) return <Empty text="Sem dados de confronto." />;
+
+  const totalH2h = me.h2h_wins + them.h2h_wins;
+  const mePct = totalH2h ? (me.h2h_wins / totalH2h) * 100 : 50;
+
+  const rows: [string, number, number][] = [
+    ["Vitórias totais", me.total_wins, them.total_wins],
+    ["Sets vencidos", me.sets_won, them.sets_won],
+    ["Games vencidos", me.games_won, them.games_won],
+  ];
+
+  return (
+    <div className="space-y-5">
+      {/* Confronto direto — destaque */}
+      <div className="rounded-3xl bg-white p-5 shadow-card">
+        <div className="text-center text-xs font-bold uppercase tracking-wide text-slate-400">Confronto direto</div>
+        <div className="mt-4 flex items-end justify-between gap-3">
+          <div className="flex-1 text-center">
+            <div className="text-xs font-semibold text-slate-500">Você</div>
+            <div className={cx("text-6xl font-black", me.h2h_wins >= them.h2h_wins ? "text-amber-600" : "text-slate-300")}>
+              {me.h2h_wins}
+            </div>
+          </div>
+          <div className="pb-4 text-lg font-black text-slate-300">×</div>
+          <div className="flex-1 text-center">
+            <div className="truncate text-xs font-semibold text-slate-500">{them.name.split(" ")[0]}</div>
+            <div className={cx("text-6xl font-black", them.h2h_wins > me.h2h_wins ? "text-amber-600" : "text-slate-300")}>
+              {them.h2h_wins}
+            </div>
+          </div>
+        </div>
+        <div className="mt-4 flex h-3 overflow-hidden rounded-full bg-slate-100">
+          <div className="bg-amber-500" style={{ width: `${mePct}%` }} />
+          <div className="bg-slate-300" style={{ width: `${100 - mePct}%` }} />
+        </div>
+        <div className="mt-2 text-center text-xs text-slate-400">
+          {totalH2h === 0 ? "Vocês ainda não se enfrentaram nesta liga." : `${totalH2h} jogo(s) entre vocês`}
+        </div>
+      </div>
+
+      {/* Comparações */}
+      <div className="rounded-3xl bg-white p-2 shadow-card">
+        {rows.map(([label, a, b]) => (
+          <div key={label} className="flex items-center gap-3 border-b border-slate-50 px-3 py-3 last:border-0">
+            <div className={cx("w-12 text-right text-lg font-extrabold", a >= b ? "text-amber-700" : "text-slate-400")}>{a}</div>
+            <div className="flex-1 text-center text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</div>
+            <div className={cx("w-12 text-left text-lg font-extrabold", b > a ? "text-amber-700" : "text-slate-400")}>{b}</div>
+          </div>
+        ))}
+        <div className="flex items-center gap-3 px-3 py-3">
+          <div className="w-12 text-right text-lg font-extrabold text-slate-600">{me.standing_pos ?? "—"}º</div>
+          <div className="flex-1 text-center text-xs font-semibold uppercase tracking-wide text-slate-400">Posição no ranking</div>
+          <div className="w-12 text-left text-lg font-extrabold text-slate-600">{them.standing_pos ?? "—"}º</div>
+        </div>
+        <div className="flex items-center gap-3 px-3 py-3">
+          <div className="w-12 text-right text-sm font-bold text-slate-600">{CLASS_LABELS[me.skill_class]}</div>
+          <div className="flex-1 text-center text-xs font-semibold uppercase tracking-wide text-slate-400">Classe</div>
+          <div className="w-12 text-left text-sm font-bold text-slate-600">{CLASS_LABELS[them.skill_class]}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* -------- Perfil -------- */
+function PerfilView({ profile }: { profile: RankingPlayerProfile | null }) {
+  if (!profile) return <Loading />;
+  const age = calcAge(profile.birthdate);
+  const fields: [string, string | null][] = [
+    ["Cidade", [profile.city, profile.state].filter(Boolean).join(" · ") || null],
+    ["Idade", age ? `${age} anos` : null],
+    ["Gênero", profile.gender],
+    ["Mão dominante", profile.dominant_hand ? HAND_LABELS[profile.dominant_hand] : null],
+    ["Formato de jogo", FORMAT_LABELS[profile.play_format]],
+    ["Classe", CLASS_LABELS[profile.skill_class]],
+    ["Clubes", profile.clubs],
+    ["Disponibilidade", profile.availability?.length ? profile.availability.join(", ") : null],
+    ["Telefone", profile.phone],
+    ["Membro desde", new Date(profile.created_at).toLocaleDateString("pt-BR", { month: "long", year: "numeric" })],
+  ];
+  return (
+    <div className="space-y-4">
+      <div className="rounded-3xl bg-white p-2 shadow-card">
+        {fields.map(([label, val]) => (
+          <div key={label} className="flex items-center justify-between gap-3 border-b border-slate-50 px-3 py-3 last:border-0">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</span>
+            <span className="text-right text-sm font-medium text-slate-700">{val ?? "—"}</span>
+          </div>
+        ))}
+      </div>
+      {profile.bio && (
+        <div className="rounded-3xl bg-white p-5 shadow-card">
+          <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Sobre</div>
+          <p className="text-sm text-slate-600">{profile.bio}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* -------- Jogos -------- */
+function JogosView({ matches }: { matches: PlayerLeagueMatch[] | null }) {
+  if (!matches) return <Loading />;
+  if (matches.length === 0) return <Empty text="Este jogador ainda não tem jogos." />;
+  return (
+    <ul className="space-y-2">
+      {matches.map((m) => {
+        const gamesLabel = formatGames(m.games);
+        const out = outcome(m);
+        return (
+          <li key={m.match_id} className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-100">
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <div className="text-xs font-semibold text-slate-400">Rodada {m.round_number}</div>
+                <div className="flex items-center gap-2">
+                  <span className="truncate text-sm font-medium">vs {m.opponent_name}</span>
+                  {out && (
+                    <span
+                      className={cx(
+                        "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold",
+                        out === "win" ? "bg-court-100 text-court-700" : "bg-red-50 text-red-600",
+                      )}
+                    >
+                      {out === "win" ? "Vitória" : "Derrota"}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="shrink-0 text-right">
+                {out ? (
+                  <>
+                    <div className="text-lg font-extrabold">
+                      {m.sets_player}<span className="mx-0.5 text-slate-300">x</span>{m.sets_opp}
+                    </div>
+                    {gamesLabel && <div className="text-[10px] text-slate-400">{gamesLabel}</div>}
+                  </>
+                ) : (
+                  <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase text-slate-600">
+                    {MATCH_STATUS_LABELS[m.status]}
+                  </span>
+                )}
+              </div>
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/* -------- Pontuação (últimas 10 rodadas, expansível) -------- */
+function PontuacaoView({ matches }: { matches: PlayerLeagueMatch[] | null }) {
+  const [open, setOpen] = useState<string | null>(null);
+  if (!matches) return <Loading />;
+  const played = matches.filter((m) => m.status === "jogado").slice(0, 10);
+  const total = played.reduce((s, m) => s + Number(m.points), 0);
+  if (played.length === 0) return <Empty text="Sem jogos pontuados ainda." />;
+  return (
+    <div className="space-y-4">
+      <div className="rounded-3xl bg-amber-50 p-5 text-center">
+        <div className="text-4xl font-black text-amber-700">{total}</div>
+        <div className="text-xs font-semibold text-amber-600">pontos nas últimas {played.length} rodada(s)</div>
+      </div>
+      <ul className="space-y-2">
+        {played.map((m) => {
+          const isOpen = open === m.match_id;
+          const out = outcome(m);
+          return (
+            <li key={m.match_id} className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-100">
+              <button
+                onClick={() => setOpen(isOpen ? null : m.match_id)}
+                className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+              >
+                <div className="min-w-0">
+                  <div className="text-sm font-bold">Rodada {m.round_number}</div>
+                  {m.scheduled_at && (
+                    <div className="text-[11px] text-slate-400">
+                      {new Date(m.scheduled_at).toLocaleDateString("pt-BR")}
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-extrabold text-amber-700">{Number(m.points)} pts</span>
+                  <span className="grid h-6 w-6 place-items-center rounded-full bg-slate-100 text-slate-500">
+                    {isOpen ? "−" : "+"}
+                  </span>
+                </div>
+              </button>
+              {isOpen && (
+                <div className="border-t border-slate-100 px-4 py-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-sm">
+                      vs <span className="font-medium">{m.opponent_name}</span>
+                      {out && (
+                        <span className={cx("ml-2 text-xs font-bold", out === "win" ? "text-court-700" : "text-red-600")}>
+                          {out === "win" ? "Vitória" : "Derrota"}
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-base font-extrabold">
+                      {m.sets_player}<span className="mx-0.5 text-slate-300">x</span>{m.sets_opp}
+                    </span>
+                  </div>
+                  {formatGames(m.games) && <div className="mt-0.5 text-[11px] text-slate-400">{formatGames(m.games)}</div>}
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+/* -------- Torneios -------- */
+function TorneiosView({ tours }: { tours: PlayerTournament[] | null }) {
+  if (!tours) return <Loading />;
+  const totalWins = tours.reduce((s, t) => s + Number(t.wins), 0);
+  const titles = tours.filter((t) => t.is_champion).length;
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-2">
+        <div className="rounded-2xl bg-amber-50 p-4 text-center">
+          <div className="text-3xl font-black text-amber-700">{totalWins}</div>
+          <div className="text-[11px] font-semibold text-amber-600">vitórias em torneios</div>
+        </div>
+        <div className="rounded-2xl bg-slate-50 p-4 text-center">
+          <div className="text-3xl font-black text-slate-700">{titles}</div>
+          <div className="text-[11px] font-semibold text-slate-500">título(s)</div>
+        </div>
+      </div>
+      {tours.length === 0 ? (
+        <Empty text="Este jogador ainda não participou de torneios." />
+      ) : (
+        <ul className="space-y-2">
+          {tours.map((t) => (
+            <li
+              key={`${t.tournament_id}-${t.category_id}`}
+              className="flex items-center justify-between gap-3 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-100"
+            >
+              <div className="min-w-0">
+                <div className="truncate text-sm font-semibold">
+                  {t.is_champion && "🏆 "}
+                  {t.is_champion ? "Campeão em " : ""}
+                  {t.tournament_name}
+                </div>
+                <div className="text-xs text-slate-500">{t.category_name}</div>
+              </div>
+              <span className="shrink-0 text-xs font-semibold text-slate-400">{Number(t.wins)} vit.</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

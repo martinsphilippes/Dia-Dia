@@ -494,6 +494,45 @@ export type PlayerLeagueMatch = {
   location: string | null;
 };
 
+export type Head2HeadRow = {
+  player_id: string;
+  name: string;
+  avatar_url: string | null;
+  skill_class: SkillClass;
+  standing_pos: number | null;
+  h2h_wins: number;
+  total_wins: number;
+  sets_won: number;
+  games_won: number;
+};
+
+export type RankingPlayerProfile = {
+  id: string;
+  name: string;
+  avatar_url: string | null;
+  city: string | null;
+  state: string | null;
+  birthdate: string | null;
+  gender: string | null;
+  dominant_hand: DominantHand | null;
+  play_format: PlayFormat;
+  bio: string | null;
+  skill_class: SkillClass;
+  phone: string | null;
+  clubs: string | null;
+  availability: string[] | null;
+  created_at: string;
+};
+
+export type PlayerTournament = {
+  tournament_id: string;
+  tournament_name: string;
+  category_id: string;
+  category_name: string;
+  is_champion: boolean;
+  wins: number;
+};
+
 export type MyPointsRow = {
   round_number: number;
   opponent_name: string;
