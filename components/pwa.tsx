@@ -21,9 +21,13 @@ function isIOS() {
   return /iphone|ipad|ipod/i.test(window.navigator.userAgent);
 }
 
+function isAndroid() {
+  return /android/i.test(window.navigator.userAgent);
+}
+
 export function PWA() {
   const [deferred, setDeferred] = useState<BIPEvent | null>(null);
-  const [showIOS, setShowIOS] = useState(false);
+  const [platform, setPlatform] = useState<"none" | "ios" | "android">("none");
 
   // Registra o service worker e trata atualização automática.
   useEffect(() => {
@@ -75,7 +79,8 @@ export function PWA() {
     window.addEventListener("beforeinstallprompt", onPrompt);
 
     // iOS não dispara beforeinstallprompt → mostra instruções.
-    if (isIOS()) setShowIOS(true);
+    if (isIOS()) setPlatform("ios");
+    else if (isAndroid()) setPlatform("android");
 
     return () => window.removeEventListener("beforeinstallprompt", onPrompt);
   }, []);
@@ -83,7 +88,7 @@ export function PWA() {
   function dismiss() {
     localStorage.setItem(DISMISS_KEY, "1");
     setDeferred(null);
-    setShowIOS(false);
+    setPlatform("none");
   }
 
   async function install() {
@@ -94,35 +99,54 @@ export function PWA() {
     localStorage.setItem(DISMISS_KEY, "1");
   }
 
-  if (!deferred && !showIOS) return null;
+  if (!deferred && platform === "none") return null;
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-[60] px-3 pb-[calc(env(safe-area-inset-bottom)+12px)]">
-      <div className="mx-auto flex max-w-md items-center gap-3 rounded-2xl bg-white p-3 shadow-2xl ring-1 ring-slate-200">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/icon-192.png" alt="Match" className="h-11 w-11 shrink-0 rounded-xl" />
-        <div className="min-w-0 flex-1">
-          <div className="text-sm font-bold text-slate-800">Instalar o Match</div>
-          {deferred ? (
-            <div className="text-xs text-slate-500">Acesse pela tela inicial, em tela cheia.</div>
-          ) : (
-            <div className="text-xs text-slate-500">
-              Toque em <span className="font-semibold">Compartilhar</span> ⬆️ e depois em{" "}
-              <span className="font-semibold">Adicionar à Tela de Início</span>.
-            </div>
-          )}
-        </div>
-        {deferred && (
-          <button
-            onClick={install}
-            className="shrink-0 rounded-full bg-court-600 px-4 py-2 text-sm font-semibold text-white"
-          >
-            Instalar
-          </button>
-        )}
-        <button onClick={dismiss} className="shrink-0 px-1 text-lg text-slate-400" aria-label="Fechar">
+    <div className="fixed inset-x-0 bottom-0 z-[60] animate-fade-up px-3 pb-[calc(env(safe-area-inset-bottom)+12px)]">
+      <div className="relative mx-auto max-w-md overflow-hidden rounded-3xl bg-gradient-to-br from-court-600 to-court-800 p-4 text-white shadow-2xl ring-1 ring-court-400/40">
+        <button
+          onClick={dismiss}
+          className="absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-full bg-white/15 text-sm"
+          aria-label="Fechar"
+        >
           ✕
         </button>
+
+        <div className="flex items-center gap-3 pr-6">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/icon-192.png" alt="Match" className="h-14 w-14 shrink-0 rounded-2xl ring-2 ring-white/30" />
+          <div className="min-w-0 flex-1">
+            <div className="text-base font-extrabold">📲 Tenha o Match na tela inicial</div>
+            <div className="text-xs text-court-100">Abra em 1 toque, em tela cheia — como um app de verdade.</div>
+          </div>
+        </div>
+
+        {deferred ? (
+          <button
+            onClick={install}
+            className="btn-ball mt-3 w-full animate-pop justify-center text-base font-extrabold shadow-lg"
+          >
+            Adicionar à tela de início ✨
+          </button>
+        ) : platform === "ios" ? (
+          <div className="mt-3 rounded-2xl bg-white/10 p-3">
+            <div className="mb-1 text-sm font-bold">Como adicionar no iPhone:</div>
+            <ol className="space-y-1 text-sm text-court-50">
+              <li>1. Toque em <span className="font-bold">Compartilhar</span> <span className="align-middle">⬆️</span> na barra do Safari.</li>
+              <li>2. Role e toque em <span className="font-bold">Adicionar à Tela de Início</span>.</li>
+              <li>3. Confirme em <span className="font-bold">Adicionar</span>. Pronto! 🎾</li>
+            </ol>
+          </div>
+        ) : (
+          <div className="mt-3 rounded-2xl bg-white/10 p-3">
+            <div className="mb-1 text-sm font-bold">Como adicionar no Android:</div>
+            <ol className="space-y-1 text-sm text-court-50">
+              <li>1. Toque no menu <span className="font-bold">⋮</span> do navegador.</li>
+              <li>2. Toque em <span className="font-bold">Instalar app</span> (ou <span className="font-bold">Adicionar à tela inicial</span>).</li>
+              <li>3. Confirme. Pronto! 🎾</li>
+            </ol>
+          </div>
+        )}
       </div>
     </div>
   );
