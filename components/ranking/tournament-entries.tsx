@@ -44,6 +44,14 @@ export function TournamentEntries({
     load();
   }, [load]);
 
+  async function removeEntry(e: TournamentEntryAdmin) {
+    if (!confirm(`Remover ${e.name} da categoria ${e.category_name}?`)) return;
+    setBusy(e.entry_id);
+    const { error } = await supabase.rpc("remove_tournament_entry", { p_entry_id: e.entry_id });
+    setBusy(null);
+    if (!error) setRows((cur) => (cur ?? []).filter((r) => r.entry_id !== e.entry_id));
+  }
+
   async function togglePaid(e: TournamentEntryAdmin) {
     const next = !e.paid;
     // atualização otimista: reflete na hora (badge + resumo) e confirma no backend
@@ -226,6 +234,14 @@ export function TournamentEntries({
                 title="Tocar para alterar o pagamento"
               >
                 {busy === e.entry_id ? "..." : e.paid ? "🟢 Pago" : "🔴 Não pago"}
+              </button>
+              <button
+                onClick={() => removeEntry(e)}
+                disabled={busy === e.entry_id}
+                className="shrink-0 text-xs font-semibold text-slate-400 hover:text-red-500"
+                title="Remover inscrição"
+              >
+                ✕
               </button>
             </li>
           ))}

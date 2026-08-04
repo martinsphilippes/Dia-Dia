@@ -1169,6 +1169,20 @@ function MembersPanel({
     await load();
   }
 
+  async function removeMember(m: LeagueMember) {
+    if (!confirm(`Remover ${m.name} deste ranking?`)) return;
+    setBusy(true);
+    setMsg(null);
+    const { error } = await supabase.rpc("remove_league_member", {
+      p_league_id: league.id,
+      p_player_id: m.player_id,
+    });
+    setBusy(false);
+    if (error) return setMsg(error.message);
+    await load();
+    onChange();
+  }
+
   async function addByEmail(e: React.FormEvent) {
     e.preventDefault();
     if (!email.trim()) return;
@@ -1249,6 +1263,15 @@ function MembersPanel({
                   className="text-xs font-semibold text-amber-700"
                 >
                   Organizador
+                </button>
+              )}
+              {!m.is_organizer && (
+                <button
+                  onClick={() => removeMember(m)}
+                  disabled={busy}
+                  className="text-xs font-semibold text-red-500"
+                >
+                  Remover
                 </button>
               )}
             </div>
