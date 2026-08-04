@@ -88,6 +88,7 @@ export type Profile = {
   play_format: PlayFormat;
   availability: string[] | null;
   avatar_url: string | null;
+  height_cm?: number | null;
   latitude: number | null;
   longitude: number | null;
   search_radius_km: number;
@@ -522,6 +523,7 @@ export type RankingPlayerProfile = {
   phone: string | null;
   clubs: string | null;
   availability: string[] | null;
+  height_cm: number | null;
   created_at: string;
 };
 

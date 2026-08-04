@@ -298,11 +298,16 @@ function PlayerProfile({
   const [matches, setMatches] = useState<PlayerLeagueMatch[] | null>(null);
   const [profile, setProfile] = useState<RankingPlayerProfile | null>(null);
   const [tours, setTours] = useState<PlayerTournament[] | null>(null);
+  const [status, setStatus] = useState<MemberStatus | null>(null);
 
   useEffect(() => {
     supabase
       .rpc("get_player_league_matches", { p_league_id: leagueId, p_player_id: player.player_id })
       .then(({ data }) => setMatches((data as unknown as PlayerLeagueMatch[]) ?? []));
+    supabase.rpc("get_league_members", { p_league_id: leagueId }).then(({ data }) => {
+      const list = (data as unknown as LeagueMember[]) ?? [];
+      setStatus(list.find((mm) => mm.player_id === player.player_id)?.status ?? null);
+    });
   }, [supabase, leagueId, player.player_id]);
 
   useEffect(() => {
@@ -341,10 +346,14 @@ function PlayerProfile({
               </div>
             )}
             <div className="min-w-0 flex-1">
-              <div className="truncate text-xl font-extrabold">{player.name}</div>
+              <div className="truncate text-xl font-extrabold">#{player.pos} {player.name}</div>
               <div className="text-sm text-amber-50">
-                {player.pos}º lugar · {CLASS_LABELS[player.skill_class]}
+                Pontuação atual: <strong>{Number(player.points)} pts</strong>
               </div>
+              <div className="text-sm text-amber-50">Categoria {CLASS_LABELS[player.skill_class]}</div>
+              {status && (
+                <div className="text-sm text-amber-50">Status: <strong>{MEMBER_STATUS_LABELS[status]}</strong></div>
+              )}
             </div>
           </div>
         </div>
@@ -369,7 +378,7 @@ function PlayerProfile({
       </div>
 
       <div className="mx-auto max-w-2xl px-4 py-5 pb-24">
-        {tab === "h2h" && <H2HView leagueId={leagueId} meId={meId} playerId={player.player_id} />}
+        {tab === "h2h" && <H2HView leagueId={leagueId} meId={meId} player={player} />}
         {tab === "perfil" && <PerfilView profile={profile} />}
         {tab === "jogos" && <JogosView matches={matches} />}
         {tab === "pontuacao" && <PontuacaoView matches={matches} />}
@@ -379,128 +388,134 @@ function PlayerProfile({
   );
 }
 
-/* -------- Head2Head (confronto entre dois jogadores quaisquer) -------- */
-function H2HView({ leagueId, meId, playerId }: { leagueId: string; meId: string; playerId: string }) {
+/* -------- Head2Head -------- */
+function WinRing({ a, b }: { a: number; b: number }) {
+  const total = a + b;
+  const frac = total ? a / total : 0;
+  const r = 52;
+  const c = 2 * Math.PI * r;
+  return (
+    <svg viewBox="0 0 120 120" className="h-28 w-28 shrink-0">
+      <circle cx="60" cy="60" r={r} fill="none" stroke="#e2e8f0" strokeWidth="14" />
+      {total > 0 && (
+        <circle
+          cx="60"
+          cy="60"
+          r={r}
+          fill="none"
+          stroke="#f59e0b"
+          strokeWidth="14"
+          strokeDasharray={`${frac * c} ${c}`}
+          strokeLinecap="round"
+          transform="rotate(-90 60 60)"
+        />
+      )}
+      <text x="60" y="61" textAnchor="middle" dominantBaseline="central" fontSize="30" fontWeight="800" className="fill-slate-800">
+        {a}
+      </text>
+    </svg>
+  );
+}
+
+function H2HView({ leagueId, meId, player }: { leagueId: string; meId: string; player: Standing }) {
   const supabase = createClient();
+  const aId = player.player_id;
   const [members, setMembers] = useState<Standing[] | null>(null);
-  const [aId, setAId] = useState(meId);
-  const [bId, setBId] = useState(playerId === meId ? "" : playerId);
+  const [opponentId, setOpponentId] = useState(meId === aId ? "" : meId);
+  const [profileA, setProfileA] = useState<RankingPlayerProfile | null>(null);
+  const [profileB, setProfileB] = useState<RankingPlayerProfile | null>(null);
   const [h2h, setH2h] = useState<Head2HeadRow[] | null>(null);
 
   useEffect(() => {
-    supabase.rpc("get_league_standings", { p_league_id: leagueId }).then(({ data }) => {
-      const rows = (data as unknown as Standing[]) ?? [];
-      setMembers(rows);
-      setBId((cur) => cur || rows.find((r) => r.player_id !== meId)?.player_id || "");
-    });
-  }, [supabase, leagueId, meId]);
+    supabase
+      .rpc("get_league_standings", { p_league_id: leagueId })
+      .then(({ data }) => setMembers((data as unknown as Standing[]) ?? []));
+    supabase
+      .rpc("get_ranking_player_profile", { p_player_id: aId })
+      .then(({ data }) => setProfileA(((data as unknown as RankingPlayerProfile[]) ?? [])[0] ?? null));
+  }, [supabase, leagueId, aId]);
 
   useEffect(() => {
-    if (!aId || !bId || aId === bId) {
-      setH2h(null);
-      return;
-    }
-    setH2h(null);
     supabase
-      .rpc("get_head2head", { p_league_id: leagueId, p_a: aId, p_b: bId })
+      .rpc("get_head2head", { p_league_id: leagueId, p_a: aId, p_b: opponentId || aId })
       .then(({ data }) => setH2h((data as unknown as Head2HeadRow[]) ?? []));
-  }, [supabase, leagueId, aId, bId]);
-
-  if (!members) return <Loading />;
+    setProfileB(null);
+    if (opponentId) {
+      supabase
+        .rpc("get_ranking_player_profile", { p_player_id: opponentId })
+        .then(({ data }) => setProfileB(((data as unknown as RankingPlayerProfile[]) ?? [])[0] ?? null));
+    }
+  }, [supabase, leagueId, aId, opponentId]);
 
   const a = h2h?.find((r) => r.player_id === aId);
-  const b = h2h?.find((r) => r.player_id === bId);
-  const totalH2h = (a?.h2h_wins ?? 0) + (b?.h2h_wins ?? 0);
-  const aPct = totalH2h ? ((a?.h2h_wins ?? 0) / totalH2h) * 100 : 50;
-  const label = (id: string, name: string) => (id === meId ? `${name} (você)` : name);
-  const selectCls = "min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm";
+  const b = opponentId ? h2h?.find((r) => r.player_id === opponentId) : undefined;
+  const hasOpp = !!opponentId;
+
+  const natural = (p: RankingPlayerProfile | null) => (p ? [p.city, p.state].filter(Boolean).join(" - ") || null : null);
+  const height = (p: RankingPlayerProfile | null) => (p?.height_cm ? `${(p.height_cm / 100).toFixed(2).replace(".", ",")} m` : null);
+  const start = (p: RankingPlayerProfile | null) => (p ? new Date(p.created_at).toLocaleDateString("pt-BR", { month: "2-digit", year: "numeric" }) : null);
+  const age = (p: RankingPlayerProfile | null) => { const x = p ? calcAge(p.birthdate) : null; return x ? String(x) : null; };
+  const hand = (p: RankingPlayerProfile | null) => (p?.dominant_hand ? HAND_LABELS[p.dominant_hand] : null);
+  const best = (row?: Head2HeadRow) => (row?.best_pos ? `${row.best_pos}º / ${CLASS_LABELS[row.skill_class]}` : null);
+
+  const rows: [string, string | number | null, string | number | null][] = [
+    ["Nome", profileA?.name ?? player.name, profileB?.name ?? null],
+    ["Idade", age(profileA), age(profileB)],
+    ["Natural", natural(profileA), natural(profileB)],
+    ["Lateral", hand(profileA), hand(profileB)],
+    ["Altura", height(profileA), height(profileB)],
+    ["Sets vencidos", a?.sets_won ?? 0, hasOpp ? b?.sets_won ?? 0 : null],
+    ["Games vencidos", a?.games_won ?? 0, hasOpp ? b?.games_won ?? 0 : null],
+    ["Início em", start(profileA), start(profileB)],
+    ["Melhor posição", best(a), hasOpp ? best(b) : null],
+  ];
+
+  const oppSelectCls = "appearance-none rounded-full bg-amber-600 px-5 py-2.5 text-center text-xs font-bold uppercase tracking-wide text-white";
 
   return (
-    <div className="space-y-5">
-      {/* Seletores de jogadores */}
-      <div className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-100">
-        <div className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-400">Comparar jogadores</div>
-        <div className="flex items-center gap-2">
-          <select className={selectCls} value={aId} onChange={(e) => setAId(e.target.value)}>
-            {members.map((m) => (
-              <option key={m.player_id} value={m.player_id}>{label(m.player_id, m.name)}</option>
-            ))}
-          </select>
-          <span className="shrink-0 text-sm font-black text-slate-300">×</span>
-          <select className={selectCls} value={bId} onChange={(e) => setBId(e.target.value)}>
-            <option value="">Escolher…</option>
-            {members.map((m) => (
-              <option key={m.player_id} value={m.player_id}>{label(m.player_id, m.name)}</option>
-            ))}
-          </select>
+    <div className="space-y-4">
+      {/* Vitórias (anel) + escolher oponente */}
+      <div className="rounded-3xl bg-white p-5 shadow-card">
+        <div className="flex items-center justify-center gap-5">
+          <div className="text-center">
+            <div className="text-4xl font-black text-amber-600">{a?.h2h_wins ?? 0}</div>
+            <div className="text-xs font-semibold text-slate-400">Vitórias</div>
+          </div>
+          <WinRing a={a?.h2h_wins ?? 0} b={b?.h2h_wins ?? 0} />
         </div>
-        {aId === bId && bId && <p className="mt-2 text-xs text-red-500">Escolha dois jogadores diferentes.</p>}
+        {members !== null && (
+          <div className="mt-4 flex justify-center">
+            <select className={oppSelectCls} value={opponentId} onChange={(e) => setOpponentId(e.target.value)}>
+              <option value="">Escolher oponente</option>
+              {members
+                .filter((m) => m.player_id !== aId)
+                .map((m) => (
+                  <option key={m.player_id} value={m.player_id}>
+                    {m.player_id === meId ? `${m.name} (você)` : m.name}
+                  </option>
+                ))}
+            </select>
+          </div>
+        )}
+        <div className="mt-3 text-center text-xs text-slate-400">
+          {!hasOpp
+            ? "Escolha um oponente para ver o confronto direto."
+            : a?.played
+              ? `${a.played} jogo(s) entre os dois · ${b?.name?.split(" ")[0]} venceu ${b?.h2h_wins ?? 0}`
+              : "Eles ainda não se enfrentaram nesta liga."}
+        </div>
       </div>
 
-      {!aId || !bId || aId === bId ? (
-        <Empty text="Selecione dois jogadores para ver o confronto." />
-      ) : !h2h || !a || !b ? (
-        <Loading />
-      ) : (
-        <>
-          {/* Confronto direto — destaque */}
-          <div className="rounded-3xl bg-white p-5 shadow-card">
-            <div className="text-center text-xs font-bold uppercase tracking-wide text-slate-400">Confronto direto</div>
-            <div className="mt-4 flex items-end justify-between gap-3">
-              <div className="flex-1 text-center">
-                <div className="truncate text-xs font-semibold text-slate-500">{aId === meId ? "Você" : a.name.split(" ")[0]}</div>
-                <div className={cx("text-6xl font-black", a.h2h_wins > b.h2h_wins ? "text-amber-600" : "text-slate-300")}>{a.h2h_wins}</div>
-              </div>
-              <div className="pb-4 text-lg font-black text-slate-300">×</div>
-              <div className="flex-1 text-center">
-                <div className="truncate text-xs font-semibold text-slate-500">{bId === meId ? "Você" : b.name.split(" ")[0]}</div>
-                <div className={cx("text-6xl font-black", b.h2h_wins > a.h2h_wins ? "text-amber-600" : "text-slate-300")}>{b.h2h_wins}</div>
-              </div>
-            </div>
-            <div className="mt-4 flex h-3 overflow-hidden rounded-full bg-slate-100">
-              <div className="bg-amber-500" style={{ width: `${aPct}%` }} />
-              <div className="bg-slate-300" style={{ width: `${100 - aPct}%` }} />
-            </div>
-            <div className="mt-2 text-center text-xs text-slate-400">
-              {a.played === 0 ? "Eles ainda não se enfrentaram nesta liga." : `${a.played} jogo(s) entre os dois`}
-            </div>
+      {/* Tabela comparativa (perfil + confronto) */}
+      <div className="rounded-3xl bg-white p-2 shadow-card">
+        {rows.map(([label, av, bv]) => (
+          <div key={label} className="flex items-center gap-2 border-b border-slate-50 px-3 py-2.5 last:border-0">
+            <div className="w-24 truncate text-right text-sm font-bold text-slate-700">{av ?? "—"}</div>
+            <div className="flex-1 text-center text-[11px] font-semibold uppercase tracking-wide text-slate-400">{label}</div>
+            <div className="w-24 truncate text-left text-sm font-bold text-slate-700">{hasOpp ? bv ?? "—" : ""}</div>
           </div>
-
-          {/* Estatísticas — apenas dos jogos entre os dois */}
-          <div className="rounded-3xl bg-white p-2 shadow-card">
-            <div className="px-3 pt-2 text-center text-[11px] text-slate-400">Estatísticas dos jogos entre os dois</div>
-            {(
-              [
-                ["Sets vencidos", a.sets_won, b.sets_won],
-                ["Games vencidos", a.games_won, b.games_won],
-              ] as [string, number, number][]
-            ).map(([lbl, av, bv]) => (
-              <div key={lbl} className="flex items-center gap-3 border-b border-slate-50 px-3 py-3">
-                <div className={cx("w-12 text-right text-lg font-extrabold", av > bv ? "text-amber-700" : "text-slate-400")}>{av}</div>
-                <div className="flex-1 text-center text-xs font-semibold uppercase tracking-wide text-slate-400">{lbl}</div>
-                <div className={cx("w-12 text-left text-lg font-extrabold", bv > av ? "text-amber-700" : "text-slate-400")}>{bv}</div>
-              </div>
-            ))}
-            {/* Contexto de cada jogador */}
-            <div className="px-3 pb-1 pt-3 text-center text-[11px] text-slate-400">No ranking</div>
-            <div className="flex items-center gap-3 border-b border-slate-50 px-3 py-3">
-              <div className="w-12 text-right text-lg font-extrabold text-slate-600">{a.standing_pos ?? "—"}º</div>
-              <div className="flex-1 text-center text-xs font-semibold uppercase tracking-wide text-slate-400">Posição atual</div>
-              <div className="w-12 text-left text-lg font-extrabold text-slate-600">{b.standing_pos ?? "—"}º</div>
-            </div>
-            <div className="flex items-center gap-3 border-b border-slate-50 px-3 py-3">
-              <div className={cx("w-12 text-right text-lg font-extrabold", (a.best_pos ?? 99) < (b.best_pos ?? 99) ? "text-amber-700" : "text-slate-400")}>{a.best_pos ?? "—"}º</div>
-              <div className="flex-1 text-center text-xs font-semibold uppercase tracking-wide text-slate-400">Melhor posição</div>
-              <div className={cx("w-12 text-left text-lg font-extrabold", (b.best_pos ?? 99) < (a.best_pos ?? 99) ? "text-amber-700" : "text-slate-400")}>{b.best_pos ?? "—"}º</div>
-            </div>
-            <div className="flex items-center gap-3 px-3 py-3">
-              <div className="w-12 text-right text-sm font-bold text-slate-600">{CLASS_LABELS[a.skill_class]}</div>
-              <div className="flex-1 text-center text-xs font-semibold uppercase tracking-wide text-slate-400">Classe</div>
-              <div className="w-12 text-left text-sm font-bold text-slate-600">{CLASS_LABELS[b.skill_class]}</div>
-            </div>
-          </div>
-        </>
-      )}
+        ))}
+      </div>
     </div>
   );
 }
@@ -514,6 +529,7 @@ function PerfilView({ profile }: { profile: RankingPlayerProfile | null }) {
     ["Idade", age ? `${age} anos` : null],
     ["Gênero", profile.gender],
     ["Mão dominante", profile.dominant_hand ? HAND_LABELS[profile.dominant_hand] : null],
+    ["Altura", profile.height_cm ? `${(profile.height_cm / 100).toFixed(2).replace(".", ",")} m` : null],
     ["Formato de jogo", FORMAT_LABELS[profile.play_format]],
     ["Classe", CLASS_LABELS[profile.skill_class]],
     ["Clubes", profile.clubs],

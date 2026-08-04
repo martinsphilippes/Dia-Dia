@@ -61,6 +61,7 @@ export function ProfileEditor({
   const [skillClass, setSkillClass] = useState<SkillClass>(profile.skill_class || 5);
   const [format, setFormat] = useState<PlayFormat>(profile.play_format || "ambos");
   const [hand, setHand] = useState<DominantHand | "">(profile.dominant_hand || "");
+  const [heightCm, setHeightCm] = useState<string>(profile.height_cm != null ? String(profile.height_cm) : "");
   const [availability, setAvailability] = useState<string[]>(profile.availability || []);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(profile.avatar_url);
   const [radius, setRadius] = useState<number>(profile.search_radius_km || 20);
@@ -192,6 +193,7 @@ export function ProfileEditor({
           skill_class: skillClass,
           play_format: format,
           dominant_hand: hand || null,
+          height_cm: heightCm ? parseInt(heightCm, 10) : null,
           availability: availability.length ? availability : null,
           avatar_url: avatarUrl,
           latitude: lat,
@@ -306,6 +308,19 @@ export function ProfileEditor({
               </option>
             ))}
           </select>
+        </div>
+        <div>
+          <label className="label">Altura (cm)</label>
+          <input
+            type="number"
+            inputMode="numeric"
+            className="input"
+            placeholder="Ex: 185"
+            min={100}
+            max={230}
+            value={heightCm}
+            onChange={(e) => setHeightCm(e.target.value)}
+          />
         </div>
       </div>
 
