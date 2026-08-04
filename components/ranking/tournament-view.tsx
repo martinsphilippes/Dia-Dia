@@ -11,11 +11,14 @@ import {
   bracketRoundLabel,
   CategoryEntry,
   CLASS_LABELS,
+  GroupMatch,
+  GroupStanding,
   SKILL_CLASSES,
   SkillClass,
   TOURNAMENT_STATUS_LABELS,
   TournamentCategory,
   TournamentDetail,
+  TournamentFormat,
 } from "@/lib/types";
 
 export function TournamentView({
@@ -285,25 +288,55 @@ function CategoryPanel({
   const supabase = createClient();
   const [entries, setEntries] = useState<CategoryEntry[] | null>(null);
   const [bracket, setBracket] = useState<BracketMatch[] | null>(null);
+  const [standings, setStandings] = useState<GroupStanding[] | null>(null);
+  const [groupMatches, setGroupMatches] = useState<GroupMatch[] | null>(null);
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
+  // Configuração da geração (organizador)
+  const [fmt, setFmt] = useState<TournamentFormat>("eliminatoria");
+  const [advance, setAdvance] = useState<1 | 2>(2);
+  const [seedIds, setSeedIds] = useState<string[]>([]);
+
   const load = useCallback(async () => {
-    const [{ data: e }, { data: b }] = await Promise.all([
+    const [{ data: e }, { data: b }, { data: g }, { data: gm }] = await Promise.all([
       supabase.rpc("get_category_entries", { p_category_id: categoryId }),
       supabase.rpc("get_bracket", { p_category_id: categoryId }),
+      supabase.rpc("get_group_standings", { p_category_id: categoryId }),
+      supabase.rpc("get_group_matches", { p_category_id: categoryId }),
     ]);
-    setEntries((e as unknown as CategoryEntry[]) ?? []);
+    const es = (e as unknown as CategoryEntry[]) ?? [];
+    setEntries(es);
     setBracket((b as unknown as BracketMatch[]) ?? []);
+    setStandings((g as unknown as GroupStanding[]) ?? []);
+    setGroupMatches((gm as unknown as GroupMatch[]) ?? []);
+    // pré-carrega os cabeças de chave já salvos, na ordem
+    setSeedIds(
+      es.filter((x) => x.seed != null).sort((a, b) => (a.seed! - b.seed!)).map((x) => x.player_id),
+    );
   }, [supabase, categoryId]);
 
   useEffect(() => {
     load();
   }, [load]);
 
+  const isMgr = tournament.is_organizer || tournament.is_owner;
   const registered = (entries ?? []).some((e) => e.player_id === meId);
-  const hasBracket = (bracket ?? []).length > 0;
+  const hasKnockout = (bracket ?? []).length > 0;
+  const hasGroups = (groupMatches ?? []).length > 0;
+  const fromGroups = category.format === "grupos";
+
+  function toggleSeed(id: string) {
+    setSeedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+  function suggestSeeds() {
+    const top = [...(entries ?? [])]
+      .sort((a, b) => a.skill_class - b.skill_class || a.name.localeCompare(b.name))
+      .slice(0, Math.min(8, entries?.length ?? 0))
+      .map((e) => e.player_id);
+    setSeedIds(top);
+  }
 
   async function register() {
     setBusy(true);
@@ -333,20 +366,47 @@ function CategoryPanel({
   async function generate() {
     setBusy(true);
     setMsg(null);
-    const { error } = await supabase.rpc("generate_bracket", { p_category_id: categoryId });
+    await supabase.rpc("set_category_seeds", { p_category_id: categoryId, p_player_ids: seedIds });
+    const { error } =
+      fmt === "grupos"
+        ? await supabase.rpc("generate_groups", { p_category_id: categoryId, p_advance: advance })
+        : await supabase.rpc("generate_bracket", { p_category_id: categoryId });
     setBusy(false);
     if (error) return setMsg(error.message);
     load();
     onChange();
   }
 
+  async function advanceToKnockout() {
+    setBusy(true);
+    setMsg(null);
+    const { error } = await supabase.rpc("advance_groups_to_knockout", { p_category_id: categoryId });
+    setBusy(false);
+    if (error) return setMsg(error.message);
+    load();
+    onChange();
+  }
+
+  const reload = () => {
+    load();
+    onChange();
+  };
+  const canReportMatch = (aId: string | null, bId: string | null) => isMgr || aId === meId || bId === meId;
+
   return (
     <div className="rounded-3xl bg-white p-5 shadow-card">
-      <h3 className="text-lg font-bold">{category.name}</h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-bold">{category.name}</h3>
+        {(hasGroups || hasKnockout) && (
+          <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-bold text-amber-700">
+            {fromGroups ? "Fase de grupos + mata-mata" : "Mata-mata"}
+          </span>
+        )}
+      </div>
 
-      {!hasBracket ? (
+      {!hasKnockout && !hasGroups ? (
+        /* ---------- Pré-geração: inscritos, cabeças de chave, formato ---------- */
         <>
-          {/* Inscritos */}
           <div className="mt-3">
             {entries === null ? (
               <p className="text-sm text-slate-400">Carregando...</p>
@@ -354,27 +414,46 @@ function CategoryPanel({
               <p className="text-sm text-slate-500">Ninguém inscrito ainda.</p>
             ) : (
               <ul className="space-y-1.5">
-                {entries.map((e) => (
-                  <li key={e.player_id} className="flex items-center gap-2 text-sm">
-                    {e.avatar_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={e.avatar_url} alt="" className="h-7 w-7 rounded-full object-cover" loading="lazy" decoding="async" />
-                    ) : (
-                      <div className="grid h-7 w-7 place-items-center rounded-full bg-amber-100 text-[10px] font-bold text-amber-700">
-                        {initials(e.name)}
-                      </div>
-                    )}
-                    <span>{e.name}</span>
-                  </li>
-                ))}
+                {entries.map((e) => {
+                  const seedNo = seedIds.indexOf(e.player_id) + 1;
+                  return (
+                    <li key={e.player_id} className="flex items-center gap-2 text-sm">
+                      {e.avatar_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={e.avatar_url} alt="" className="h-7 w-7 rounded-full object-cover" loading="lazy" decoding="async" />
+                      ) : (
+                        <div className="grid h-7 w-7 place-items-center rounded-full bg-amber-100 text-[10px] font-bold text-amber-700">
+                          {initials(e.name)}
+                        </div>
+                      )}
+                      <span className="flex-1 truncate">{e.name}</span>
+                      {isMgr ? (
+                        <button
+                          onClick={() => toggleSeed(e.player_id)}
+                          className={cx(
+                            "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold transition",
+                            seedNo > 0 ? "bg-amber-600 text-white" : "bg-slate-100 text-slate-500",
+                          )}
+                        >
+                          {seedNo > 0 ? `Cabeça ${seedNo}` : "Cabeça?"}
+                        </button>
+                      ) : (
+                        e.seed != null && (
+                          <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700">
+                            Cabeça {e.seed}
+                          </span>
+                        )
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>
 
           {msg && <p className="mt-3 text-sm text-red-600">{msg}</p>}
 
-          {/* Ações */}
-          <div className="mt-4 space-y-2">
+          <div className="mt-4 space-y-3">
             {tournament.status === "inscricoes" && !registered && (
               <button onClick={register} disabled={busy} className="btn-primary w-full text-sm">
                 {busy ? "..." : "Inscrever-se nesta categoria"}
@@ -386,7 +465,7 @@ function CategoryPanel({
               </p>
             )}
 
-            {(tournament.is_organizer || tournament.is_owner) && (
+            {isMgr && (
               <>
                 <form onSubmit={addEntry} className="flex gap-2">
                   <input
@@ -397,34 +476,292 @@ function CategoryPanel({
                   />
                   <button className="btn-ghost text-sm">Add</button>
                 </form>
+
+                {/* Cabeças de chave */}
+                <div className="rounded-2xl bg-amber-50/60 p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wide text-amber-700">Cabeças de chave</span>
+                    <div className="flex gap-2">
+                      <button onClick={suggestSeeds} className="text-xs font-semibold text-amber-700">Sugerir pela classe</button>
+                      {seedIds.length > 0 && (
+                        <button onClick={() => setSeedIds([])} className="text-xs font-semibold text-slate-400">Limpar</button>
+                      )}
+                    </div>
+                  </div>
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    Toque em “Cabeça?” na lista para marcar os favoritos na ordem (1º, 2º…). Eles ficam separados no sorteio.
+                  </p>
+                </div>
+
+                {/* Formato */}
+                <div className="rounded-2xl bg-slate-50 p-3">
+                  <span className="text-xs font-bold uppercase tracking-wide text-slate-500">Formato</span>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    {(
+                      [
+                        ["eliminatoria", "Mata-mata"],
+                        ["grupos", "Grupos"],
+                      ] as [TournamentFormat, string][]
+                    ).map(([k, l]) => (
+                      <button
+                        key={k}
+                        onClick={() => setFmt(k)}
+                        className={cx(
+                          "rounded-xl px-3 py-2 text-sm font-semibold transition",
+                          fmt === k ? "bg-amber-600 text-white" : "bg-white text-slate-600 ring-1 ring-slate-200",
+                        )}
+                      >
+                        {l}
+                      </button>
+                    ))}
+                  </div>
+                  {fmt === "grupos" && (
+                    <div className="mt-3">
+                      <span className="text-xs text-slate-500">Quantos avançam de cada grupo?</span>
+                      <div className="mt-1.5 flex gap-2">
+                        {([1, 2] as (1 | 2)[]).map((a) => (
+                          <button
+                            key={a}
+                            onClick={() => setAdvance(a)}
+                            className={cx(
+                              "flex-1 rounded-xl px-3 py-1.5 text-sm font-semibold transition",
+                              advance === a ? "bg-court-600 text-white" : "bg-white text-slate-600 ring-1 ring-slate-200",
+                            )}
+                          >
+                            {a === 1 ? "1º de cada" : "1º e 2º"}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="mt-2 text-[11px] text-slate-500">
+                        Grupos de 3 a 4 jogadores, montados automaticamente (funciona com qualquer número).
+                      </p>
+                    </div>
+                  )}
+                </div>
+
                 <button
                   onClick={generate}
-                  disabled={busy || (entries?.length ?? 0) < 2}
+                  disabled={busy || (entries?.length ?? 0) < (fmt === "grupos" ? 3 : 2)}
                   className="btn-ball w-full text-sm"
                 >
-                  🎾 Gerar chaveamento ({entries?.length ?? 0} inscritos)
+                  🎾 {fmt === "grupos" ? "Gerar grupos" : "Gerar chaveamento"} ({entries?.length ?? 0} inscritos)
                 </button>
               </>
             )}
           </div>
         </>
       ) : (
-        <Bracket
-          matches={bracket!}
-          meId={meId}
-          canReport={(m) =>
-            (tournament.is_organizer || tournament.is_owner) || m.player_a_id === meId || m.player_b_id === meId
-          }
-          onReported={() => {
-            load();
-            onChange();
-          }}
-          canRegenerate={(tournament.is_organizer || tournament.is_owner)}
-          onRegenerate={generate}
-          busy={busy}
-        />
+        /* ---------- Já gerado ---------- */
+        <div className="mt-3 space-y-5">
+          {hasGroups && (
+            <GroupsView
+              standings={standings ?? []}
+              matches={groupMatches ?? []}
+              meId={meId}
+              advancePerGroup={category.advance_per_group ?? 2}
+              canReport={canReportMatch}
+              onReported={reload}
+              collapsed={hasKnockout}
+            />
+          )}
+
+          {fromGroups && !hasKnockout && isMgr && (
+            <div>
+              {msg && <p className="mb-2 text-sm text-red-600">{msg}</p>}
+              <button
+                onClick={advanceToKnockout}
+                disabled={busy || !(groupMatches ?? []).every((m) => m.status === "jogado")}
+                className="btn-primary w-full text-sm"
+              >
+                {busy ? "..." : "Avançar para o mata-mata"}
+              </button>
+              {!(groupMatches ?? []).every((m) => m.status === "jogado") && (
+                <p className="mt-1.5 text-center text-[11px] text-slate-400">
+                  Lance o resultado de todos os jogos dos grupos para liberar.
+                </p>
+              )}
+            </div>
+          )}
+
+          {hasKnockout && (
+            <Bracket
+              matches={bracket!}
+              meId={meId}
+              canReport={(m) => canReportMatch(m.player_a_id, m.player_b_id)}
+              onReported={reload}
+              canRegenerate={isMgr && !fromGroups}
+              onRegenerate={generate}
+              busy={busy}
+            />
+          )}
+        </div>
       )}
     </div>
+  );
+}
+
+/* -------- Fase de grupos -------- */
+function GroupsView({
+  standings,
+  matches,
+  meId,
+  advancePerGroup,
+  canReport,
+  onReported,
+  collapsed,
+}: {
+  standings: GroupStanding[];
+  matches: GroupMatch[];
+  meId: string;
+  advancePerGroup: number;
+  canReport: (aId: string | null, bId: string | null) => boolean;
+  onReported: () => void;
+  collapsed: boolean;
+}) {
+  const groups = Array.from(new Set(standings.map((s) => s.group_no))).sort((a, b) => a - b);
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="text-xs font-bold uppercase tracking-wide text-court-700">Fase de grupos</div>
+        <span className="text-[11px] text-slate-400">
+          Avançam {advancePerGroup === 1 ? "o 1º" : "os 2 primeiros"} de cada grupo
+        </span>
+      </div>
+      {groups.map((g) => {
+        const rows = standings.filter((s) => s.group_no === g).sort((a, b) => a.rank - b.rank);
+        const gms = matches.filter((m) => m.group_no === g);
+        return (
+          <div key={g} className="rounded-2xl border border-slate-100 p-3">
+            <div className="mb-2 text-sm font-bold text-slate-700">Grupo {g}</div>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-[11px] uppercase text-slate-400">
+                  <th className="w-6 text-left font-semibold">#</th>
+                  <th className="text-left font-semibold">Jogador</th>
+                  <th className="w-8 text-center font-semibold">J</th>
+                  <th className="w-8 text-center font-semibold">V</th>
+                  <th className="w-12 text-center font-semibold">Saldo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => {
+                  const saldo = r.sets_won - r.sets_lost;
+                  return (
+                    <tr key={r.player_id} className={cx("border-t border-slate-50", r.qualifies && "bg-court-50/60")}>
+                      <td className="py-1 text-slate-400">{r.rank}</td>
+                      <td className="py-1">
+                        <span className={cx("truncate", r.player_id === meId && "font-semibold text-amber-700")}>
+                          {r.name}
+                          {r.qualifies ? " ✅" : ""}
+                        </span>
+                      </td>
+                      <td className="py-1 text-center text-slate-500">{r.played}</td>
+                      <td className="py-1 text-center font-semibold">{r.wins}</td>
+                      <td className="py-1 text-center text-slate-500">
+                        {saldo > 0 ? "+" : ""}
+                        {saldo}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {!collapsed && gms.length > 0 && (
+              <ul className="mt-3 space-y-2">
+                {gms.map((m) => (
+                  <GroupMatchCard
+                    key={m.match_id}
+                    m={m}
+                    meId={meId}
+                    canReport={canReport(m.player_a_id, m.player_b_id)}
+                    onReported={onReported}
+                  />
+                ))}
+              </ul>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function GroupMatchCard({
+  m,
+  meId,
+  canReport,
+  onReported,
+}: {
+  m: GroupMatch;
+  meId: string;
+  canReport: boolean;
+  onReported: () => void;
+}) {
+  const supabase = createClient();
+  const [open, setOpen] = useState(false);
+  const [sa, setSa] = useState("");
+  const [sb, setSb] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const played = m.status === "jogado";
+
+  async function report(e: React.FormEvent) {
+    e.preventDefault();
+    setErr(null);
+    setBusy(true);
+    const { error } = await supabase.rpc("report_tournament_match", {
+      p_match_id: m.match_id,
+      p_sets_a: Number(sa),
+      p_sets_b: Number(sb),
+    });
+    setBusy(false);
+    if (error) return setErr(error.message);
+    setOpen(false);
+    onReported();
+  }
+
+  return (
+    <li className="rounded-2xl border border-slate-100 bg-slate-50 p-2.5">
+      <BracketSide
+        name={m.player_a_name}
+        avatar={m.player_a_avatar}
+        sets={m.sets_a}
+        isWinner={played && m.winner_id === m.player_a_id}
+        isMe={m.player_a_id === meId}
+      />
+      <div className="my-1 border-t border-dashed border-slate-200" />
+      <BracketSide
+        name={m.player_b_name}
+        avatar={m.player_b_avatar}
+        sets={m.sets_b}
+        isWinner={played && m.winner_id === m.player_b_id}
+        isMe={m.player_b_id === meId}
+      />
+      {canReport && !played && (
+        <div className="mt-2 text-center">
+          {open ? (
+            <form onSubmit={report} className="flex flex-col items-center gap-2">
+              <div className="flex items-center gap-2 text-sm">
+                <span className="max-w-[70px] truncate text-slate-500">{m.player_a_name?.split(" ")[0]}</span>
+                <input className="input w-12 text-center" inputMode="numeric" value={sa} onChange={(e) => setSa(e.target.value)} placeholder="2" />
+                <span className="text-slate-400">x</span>
+                <input className="input w-12 text-center" inputMode="numeric" value={sb} onChange={(e) => setSb(e.target.value)} placeholder="0" />
+                <span className="max-w-[70px] truncate text-slate-500">{m.player_b_name?.split(" ")[0]}</span>
+              </div>
+              {err && <p className="text-xs text-red-600">{err}</p>}
+              <div className="flex gap-2">
+                <button className="btn-primary text-xs" disabled={busy}>Salvar</button>
+                <button type="button" className="btn-ghost text-xs" onClick={() => setOpen(false)}>Cancelar</button>
+              </div>
+            </form>
+          ) : (
+            <button onClick={() => setOpen(true)} className="text-xs font-semibold text-amber-700">
+              Lançar resultado
+            </button>
+          )}
+        </div>
+      )}
+    </li>
   );
 }
 

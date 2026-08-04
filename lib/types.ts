@@ -556,12 +556,16 @@ export type TournamentEntryAdmin = {
   paid: boolean;
 };
 
+export type TournamentFormat = "eliminatoria" | "grupos";
+
 export type TournamentCategory = {
   id: string;
   name: string;
   entry_count: number;
   am_registered: boolean;
   has_bracket: boolean;
+  format: TournamentFormat;
+  advance_per_group: number | null;
 };
 
 export type CategoryEntry = {
@@ -570,6 +574,35 @@ export type CategoryEntry = {
   avatar_url: string | null;
   city: string | null;
   skill_class: SkillClass;
+  seed: number | null;
+};
+
+export type GroupStanding = {
+  group_no: number;
+  player_id: string;
+  name: string;
+  avatar_url: string | null;
+  played: number;
+  wins: number;
+  sets_won: number;
+  sets_lost: number;
+  rank: number;
+  qualifies: boolean;
+};
+
+export type GroupMatch = {
+  match_id: string;
+  group_no: number;
+  player_a_id: string | null;
+  player_a_name: string | null;
+  player_a_avatar: string | null;
+  player_b_id: string | null;
+  player_b_name: string | null;
+  player_b_avatar: string | null;
+  winner_id: string | null;
+  sets_a: number | null;
+  sets_b: number | null;
+  status: string;
 };
 
 export type BracketStatus = "aguardando" | "pronto" | "jogado" | "bye";
