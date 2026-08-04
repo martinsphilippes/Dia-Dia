@@ -47,6 +47,20 @@ export function AdminDashboard() {
     setBusy(null);
   }
 
+  async function removeLeague(id: string, name: string) {
+    if (
+      !confirm(
+        `Excluir definitivamente a liga "${name}"? Esta ação não pode ser desfeita — apaga rodadas, jogos e membros arquivados.`,
+      )
+    )
+      return;
+    setBusy(id);
+    const { error } = await supabase.rpc("admin_delete_league", { p_league_id: id });
+    if (error) alert(error.message);
+    await load();
+    setBusy(null);
+  }
+
   useEffect(() => {
     load();
   }, [load]);
@@ -245,13 +259,22 @@ export function AdminDashboard() {
                     liberada(s)
                   </div>
                 </div>
-                <button
-                  onClick={() => restore(a.league_id)}
-                  disabled={busy === a.league_id}
-                  className="shrink-0 rounded-full bg-court-600 px-3 py-1.5 text-xs font-semibold text-white"
-                >
-                  {busy === a.league_id ? "..." : "Restaurar"}
-                </button>
+                <div className="flex shrink-0 gap-2">
+                  <button
+                    onClick={() => restore(a.league_id)}
+                    disabled={busy === a.league_id}
+                    className="rounded-full bg-court-600 px-3 py-1.5 text-xs font-semibold text-white"
+                  >
+                    {busy === a.league_id ? "..." : "Restaurar"}
+                  </button>
+                  <button
+                    onClick={() => removeLeague(a.league_id, a.league_name)}
+                    disabled={busy === a.league_id}
+                    className="rounded-full bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 ring-1 ring-red-200"
+                  >
+                    Excluir
+                  </button>
+                </div>
               </li>
             ))}
           </ul>
