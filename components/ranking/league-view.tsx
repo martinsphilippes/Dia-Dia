@@ -330,7 +330,7 @@ function PlayerProfile({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-amber-50/40">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-amber-50">
       <header className="pt-safe bg-gradient-to-br from-amber-500 to-amber-700 px-5 pb-5 text-white">
         <div className="mx-auto max-w-2xl">
           <button onClick={onClose} className="text-sm font-semibold text-amber-50">← Voltar à classificação</button>
@@ -358,7 +358,7 @@ function PlayerProfile({
       </header>
 
       {/* Abas */}
-      <div className="sticky top-0 z-10 border-b border-amber-100 bg-white/95 backdrop-blur">
+      <div className="sticky top-0 z-10 border-b border-amber-100 bg-white">
         <div className="mx-auto flex max-w-2xl gap-1 overflow-x-auto px-3 py-2">
           {tabs.map(([k, l]) => (
             <button
