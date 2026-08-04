@@ -37,6 +37,22 @@ export function TournamentView({
   const [catMsg, setCatMsg] = useState<string | null>(null);
   const [orgEmail, setOrgEmail] = useState("");
   const [orgMsg, setOrgMsg] = useState<string | null>(null);
+  const [editName, setEditName] = useState(false);
+  const [nameVal, setNameVal] = useState("");
+
+  async function saveName() {
+    if (!nameVal.trim()) return;
+    const { error } = await supabase.rpc("set_tournament_name", {
+      p_tournament_id: tournamentId,
+      p_name: nameVal.trim(),
+    });
+    if (error) {
+      alert(error.message);
+      return;
+    }
+    setEditName(false);
+    loadTournament();
+  }
 
   async function setOrganizer(e: React.FormEvent) {
     e.preventDefault();
@@ -135,7 +151,37 @@ export function TournamentView({
           </span>
         </div>
         <div className="mx-auto mt-5 max-w-3xl">
-          <h1 className="text-2xl font-extrabold">🏆 {t.name}</h1>
+          {editName ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                className="min-w-0 flex-1 rounded-xl px-3 py-2 text-lg font-bold text-slate-800"
+                value={nameVal}
+                onChange={(e) => setNameVal(e.target.value)}
+                autoFocus
+              />
+              <button onClick={saveName} className="rounded-full bg-white px-3 py-1.5 text-sm font-bold text-amber-700">
+                Salvar
+              </button>
+              <button onClick={() => setEditName(false)} className="text-sm font-semibold text-amber-50">
+                Cancelar
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-extrabold">🏆 {t.name}</h1>
+              {(t.is_organizer || t.is_owner) && (
+                <button
+                  onClick={() => {
+                    setNameVal(t.name);
+                    setEditName(true);
+                  }}
+                  className="rounded-full bg-white/15 px-2.5 py-1 text-xs font-semibold ring-1 ring-white/25"
+                >
+                  ✏️ Editar nome
+                </button>
+              )}
+            </div>
+          )}
           <p className="mt-1 text-sm text-amber-50">
             {t.city ? `${t.city} · ` : ""}organizador: {t.organizer_name}
           </p>
