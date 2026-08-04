@@ -367,6 +367,19 @@ export function ProfileEditor({
             {cityLabel && <span className="text-slate-500">· {cityLabel}{uf ? ` - ${uf}` : ""}</span>}
           </p>
         )}
+
+        {lat != null && lng != null && (
+          <div className="mt-2 overflow-hidden rounded-xl ring-1 ring-slate-200">
+            <iframe
+              key={`${lat.toFixed(5)},${lng.toFixed(5)}`}
+              title="Mapa da sua localização"
+              className="h-40 w-full border-0"
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              src={`https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.012}%2C${lat - 0.008}%2C${lng + 0.012}%2C${lat + 0.008}&layer=mapnik&marker=${lat}%2C${lng}`}
+            />
+          </div>
+        )}
         {locError && <p className="mt-3 text-sm text-red-600">{locError}</p>}
       </div>
 
