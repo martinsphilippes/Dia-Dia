@@ -101,6 +101,17 @@ export function CourtScheduler({
 
   const slots = useMemo(() => (court ? buildSlots(court) : []), [court]);
 
+  const courtBookings = useMemo(
+    () =>
+      court
+        ? dayBookings
+            .filter((b) => b.court_id === court.court_id)
+            .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime())
+        : [],
+    [court, dayBookings],
+  );
+  const hm = (iso: string) => new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
   function slotOccupied(s: string): boolean {
     if (!court || !date) return false;
     const startMs = new Date(`${date}T${s}:00`).getTime();
@@ -253,6 +264,22 @@ export function CourtScheduler({
               })}
               {slots.length === 0 && <span className="text-xs text-slate-400">Sem horários configurados nesta quadra.</span>}
             </div>
+
+            {courtBookings.length > 0 && (
+              <div className="mt-2 rounded-xl bg-slate-50 p-2.5">
+                <div className="mb-1 text-[11px] font-semibold uppercase text-slate-400">Horários ocupados</div>
+                <ul className="space-y-1">
+                  {courtBookings.map((b, i) => (
+                    <li key={i} className="flex items-center gap-2 text-xs text-slate-600">
+                      <span className="shrink-0 font-bold text-amber-700">{hm(b.starts_at)}</span>
+                      <span className="truncate">
+                        {b.challenger_name ?? "?"} <span className="text-slate-400">vs</span> {b.challenged_name ?? "?"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         )
       )}
