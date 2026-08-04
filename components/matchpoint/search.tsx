@@ -66,15 +66,10 @@ export function MatchPointSearch({ me }: { me: Profile }) {
 
   return (
     <div className="space-y-4">
-      {/* Ações principais */}
-      <div className="flex gap-2">
-        <button onClick={() => setShowReq(true)} className="btn-primary flex-1 text-sm">
-          📣 Procuro parceiro agora
-        </button>
-        <Link href="/discover" className="btn-ghost grid place-items-center text-sm">
-          Match (swipe)
-        </Link>
-      </div>
+      {/* Ação principal */}
+      <button onClick={() => setShowReq(true)} className="btn-primary w-full text-sm">
+        📣 Procuro parceiro agora
+      </button>
 
       {showReq && <RequestForm me={me} onClose={() => setShowReq(false)} />}
 
