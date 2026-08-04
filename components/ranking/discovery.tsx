@@ -499,7 +499,18 @@ export function DiscoverySettings({ leagueId }: { leagueId: string }) {
         <div className="grid grid-cols-2 gap-2">
           <div>
             <label className="label">Cidade</label>
-            <input className="input" value={d.city ?? ""} onChange={(e) => set("city", e.target.value)} />
+            <PlaceAutocomplete
+              cityOnly
+              value={d.city ?? ""}
+              onChange={(v) => set("city", v)}
+              placeholder="Ex.: Salvador"
+              onSelect={(p) => {
+                if (p.city) set("city", p.city);
+                if (p.state) set("state", p.state);
+                set("latitude", p.lat);
+                set("longitude", p.lon);
+              }}
+            />
           </div>
           <div>
             <label className="label">UF</label>
