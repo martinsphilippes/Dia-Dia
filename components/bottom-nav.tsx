@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { IconCards, IconChat, IconShield, IconUser } from "@/components/icons";
+import { IconCards, IconChat, IconShield, IconUser, TennisBall } from "@/components/icons";
 import { cx } from "@/lib/utils";
 
 const baseItems = [
-  { href: "/discover", label: "Descobrir", Icon: IconCards },
-  { href: "/matches", label: "Matches", Icon: IconChat },
+  { href: "/matchpoint", label: "Descobrir", Icon: TennisBall },
+  { href: "/discover", label: "Match", Icon: IconCards },
+  { href: "/matches", label: "Conversas", Icon: IconChat },
   { href: "/profile", label: "Perfil", Icon: IconUser },
 ];
 

@@ -32,9 +32,10 @@ export default async function DiscoverPage() {
       </div>
       <header className="mb-4 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-extrabold">Descobrir</h1>
+          <h1 className="text-2xl font-extrabold">Match</h1>
           <p className="text-sm text-slate-500">
-            Tenistas num raio de <strong>{profile.search_radius_km} km</strong>
+            Deslize para dar match — tenistas num raio de{" "}
+            <strong>{profile.search_radius_km} km</strong>
           </p>
         </div>
         <span className="rounded-full bg-court-50 px-3 py-1.5 text-xs font-semibold text-court-700">

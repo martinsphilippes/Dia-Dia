@@ -72,7 +72,7 @@ export function MatchPointSearch({ me }: { me: Profile }) {
           📣 Procuro parceiro agora
         </button>
         <Link href="/discover" className="btn-ghost grid place-items-center text-sm">
-          Modo swipe
+          Match (swipe)
         </Link>
       </div>
 

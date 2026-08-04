@@ -25,19 +25,19 @@ export default async function MatchesPage() {
           🏠 Início
         </a>
       </div>
-      <h1 className="text-2xl font-extrabold">Matches</h1>
+      <h1 className="text-2xl font-extrabold">Conversas</h1>
       <p className="text-sm text-slate-500">Seus parceiros de quadra</p>
 
       {matches.length === 0 ? (
         <div className="mt-16 text-center">
           <div className="text-5xl">🎾</div>
-          <h2 className="mt-3 text-lg font-bold">Ainda sem matches</h2>
+          <h2 className="mt-3 text-lg font-bold">Ainda sem conversas</h2>
           <p className="mx-auto mt-1 max-w-xs text-sm text-slate-500">
-            Deslize alguns cards em Descobrir. Quando alguém curtir de volta,
-            vocês aparecem aqui.
+            Dê match no swipe (aba <strong>Match</strong>). Quando alguém curtir de
+            volta, a conversa aparece aqui.
           </p>
           <Link href="/discover" className="btn-primary mt-6">
-            Descobrir tenistas
+            Ir para o Match
           </Link>
         </div>
       ) : (
