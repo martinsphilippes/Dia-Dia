@@ -380,7 +380,7 @@ function PlayerProfile({
       <div className="mx-auto max-w-2xl px-4 py-5 pb-24">
         {tab === "h2h" && <H2HView leagueId={leagueId} meId={meId} player={player} />}
         {tab === "perfil" && <PerfilView profile={profile} />}
-        {tab === "jogos" && <JogosView matches={matches} />}
+        {tab === "jogos" && <JogosView matches={matches} playerName={player.name} />}
         {tab === "pontuacao" && <PontuacaoView matches={matches} />}
         {tab === "torneios" && <TorneiosView tours={tours} />}
       </div>
@@ -557,53 +557,79 @@ function PerfilView({ profile }: { profile: RankingPlayerProfile | null }) {
   );
 }
 
-/* -------- Jogos -------- */
-function JogosView({ matches }: { matches: PlayerLeagueMatch[] | null }) {
+/* -------- Jogos (placar por rodada, dois jogadores) -------- */
+function JogosView({ matches, playerName }: { matches: PlayerLeagueMatch[] | null; playerName: string }) {
   if (!matches) return <Loading />;
   if (matches.length === 0) return <Empty text="Este jogador ainda não tem jogos." />;
+
+  const byRound = new Map<number, PlayerLeagueMatch[]>();
+  for (const m of matches) {
+    if (!byRound.has(m.round_number)) byRound.set(m.round_number, []);
+    byRound.get(m.round_number)!.push(m);
+  }
+  const rounds = [...byRound.keys()].sort((a, b) => b - a);
+
   return (
-    <ul className="space-y-2">
-      {matches.map((m) => {
-        const gamesLabel = formatGames(m.games);
-        const out = outcome(m);
-        return (
-          <li key={m.match_id} className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-100">
-            <div className="flex items-center justify-between gap-2">
-              <div className="min-w-0">
-                <div className="text-xs font-semibold text-slate-400">Rodada {m.round_number}</div>
-                <div className="flex items-center gap-2">
-                  <span className="truncate text-sm font-medium">vs {m.opponent_name}</span>
-                  {out && (
-                    <span
-                      className={cx(
-                        "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold",
-                        out === "win" ? "bg-court-100 text-court-700" : "bg-red-50 text-red-600",
-                      )}
-                    >
-                      {out === "win" ? "Vitória" : "Derrota"}
-                    </span>
-                  )}
-                </div>
+    <div className="space-y-6">
+      {rounds.map((rn) => (
+        <div key={rn}>
+          <div className="mb-1 text-sm font-extrabold uppercase tracking-wide text-amber-600">Rodada {rn}</div>
+          <div>
+            {byRound.get(rn)!.map((m) => (
+              <div key={m.match_id} className="border-b border-dashed border-slate-200 py-1 last:border-0">
+                <MatchScore m={m} playerName={playerName} />
               </div>
-              <div className="shrink-0 text-right">
-                {out ? (
-                  <>
-                    <div className="text-lg font-extrabold">
-                      {m.sets_player}<span className="mx-0.5 text-slate-300">x</span>{m.sets_opp}
-                    </div>
-                    {gamesLabel && <div className="text-[10px] text-slate-400">{gamesLabel}</div>}
-                  </>
-                ) : (
-                  <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase text-slate-600">
-                    {MATCH_STATUS_LABELS[m.status]}
-                  </span>
-                )}
-              </div>
-            </div>
-          </li>
-        );
-      })}
-    </ul>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MatchScore({ m, playerName }: { m: PlayerLeagueMatch; playerName: string }) {
+  const played = m.status === "jogado";
+  const games = m.games ?? [];
+  const challengerName = m.is_challenger ? playerName : m.opponent_name;
+  const challengedName = m.is_challenger ? m.opponent_name : playerName;
+  const challengerWon =
+    played && (m.is_challenger ? (m.sets_player ?? 0) > (m.sets_opp ?? 0) : (m.sets_opp ?? 0) > (m.sets_player ?? 0));
+
+  const side = (name: string, role: string, won: boolean, key: "c" | "d") => (
+    <div className="flex items-center gap-3 py-2">
+      <span
+        className={cx(
+          "grid h-6 w-6 shrink-0 place-items-center rounded-md text-xs font-black text-white",
+          !played ? "bg-slate-300" : won ? "bg-court-600" : "bg-red-500",
+        )}
+      >
+        {played ? (won ? "V" : "D") : "·"}
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-sm font-semibold text-slate-700">{name}</div>
+        <div className="text-[11px] text-slate-400">({role})</div>
+      </div>
+      {played && games.length > 0 ? (
+        <div className="flex shrink-0 gap-3 tabular-nums">
+          {[0, 1, 2].map((i) => (
+            <span key={i} className={cx("w-4 text-right text-sm font-bold", won ? "text-slate-800" : "text-slate-400")}>
+              {games[i] ? games[i][key] : 0}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <span className="shrink-0 text-[10px] font-semibold uppercase text-slate-400">
+          {played ? (won ? "Vitória" : "Derrota") : MATCH_STATUS_LABELS[m.status]}
+        </span>
+      )}
+    </div>
+  );
+
+  return (
+    <>
+      {side(challengerName, "Desafiante", challengerWon, "c")}
+      {side(challengedName, "Desafiado", played && !challengerWon, "d")}
+    </>
   );
 }
 
