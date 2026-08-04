@@ -15,6 +15,7 @@ import {
   PossibleAthletesPanel,
 } from "@/components/ranking/discovery";
 import {
+  CLASS_LABELS,
   LeagueDetail,
   LeagueMember,
   MATCH_STATUS_LABELS,
@@ -22,6 +23,7 @@ import {
   MemberStatus,
   MyLeagueMatch,
   MyPointsRow,
+  PlayerLeagueMatch,
   RoundInfo,
   RoundMatch,
   Standing,
@@ -206,6 +208,7 @@ export function LeagueView({ leagueId, meId }: { leagueId: string; meId: string 
 function Standings({ leagueId, meId }: { leagueId: string; meId: string }) {
   const supabase = createClient();
   const [rows, setRows] = useState<Standing[] | null>(null);
+  const [sel, setSel] = useState<Standing | null>(null);
   useEffect(() => {
     supabase
       .rpc("get_league_standings", { p_league_id: leagueId })
@@ -228,7 +231,14 @@ function Standings({ leagueId, meId }: { leagueId: string; meId: string }) {
         </thead>
         <tbody className="divide-y divide-slate-100">
           {rows.map((r) => (
-            <tr key={r.player_id} className={cx(r.player_id === meId && "bg-amber-50")}>
+            <tr
+              key={r.player_id}
+              onClick={() => setSel(r)}
+              className={cx(
+                "cursor-pointer transition hover:bg-amber-50/60",
+                r.player_id === meId && "bg-amber-50",
+              )}
+            >
               <td className="py-2.5 pr-2 font-bold text-slate-400">{r.pos}º</td>
               <td className="py-2.5">
                 <div className="flex items-center gap-2">
@@ -240,7 +250,7 @@ function Standings({ leagueId, meId }: { leagueId: string; meId: string }) {
                       {initials(r.name)}
                     </div>
                   )}
-                  <span className="font-medium">{r.name}</span>
+                  <span className="font-medium underline-offset-2 hover:underline">{r.name}</span>
                 </div>
               </td>
               <td className="py-2.5 text-right text-slate-500">{Number(r.games)}</td>
@@ -249,6 +259,122 @@ function Standings({ leagueId, meId }: { leagueId: string; meId: string }) {
           ))}
         </tbody>
       </table>
+      <p className="mt-3 text-center text-[11px] text-slate-400">
+        Toque em um jogador para ver os jogos e a pontuação dele.
+      </p>
+      {sel && <PlayerDetail leagueId={leagueId} player={sel} onClose={() => setSel(null)} />}
+    </div>
+  );
+}
+
+/* ---------------- Detalhe público de um jogador ---------------- */
+function PlayerDetail({
+  leagueId,
+  player,
+  onClose,
+}: {
+  leagueId: string;
+  player: Standing;
+  onClose: () => void;
+}) {
+  const supabase = createClient();
+  const [matches, setMatches] = useState<PlayerLeagueMatch[] | null>(null);
+
+  useEffect(() => {
+    supabase
+      .rpc("get_player_league_matches", { p_league_id: leagueId, p_player_id: player.player_id })
+      .then(({ data }) => setMatches((data as unknown as PlayerLeagueMatch[]) ?? []));
+  }, [supabase, leagueId, player.player_id]);
+
+  const played = (matches ?? []).filter((m) => m.status === "jogado");
+  const total = played.slice(0, 10).reduce((s, m) => s + Number(m.points), 0);
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-end bg-black/40 sm:place-items-center" onClick={onClose}>
+      <div
+        className="pb-safe-sheet max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-white p-5 sm:rounded-3xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Cabeçalho do jogador */}
+        <div className="flex items-center gap-3">
+          {player.avatar_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={player.avatar_url} alt="" className="h-14 w-14 rounded-full object-cover" />
+          ) : (
+            <div className="grid h-14 w-14 place-items-center rounded-full bg-amber-100 font-bold text-amber-700">
+              {initials(player.name)}
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-lg font-extrabold">{player.name}</div>
+            <div className="text-xs text-slate-500">
+              {player.pos}º lugar · {CLASS_LABELS[player.skill_class]}
+              {player.city ? ` · ${player.city}` : ""}
+            </div>
+          </div>
+          <button onClick={onClose} className="text-xl text-slate-400">✕</button>
+        </div>
+
+        {/* Pontuação */}
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <div className="rounded-2xl bg-amber-50 p-3 text-center">
+            <div className="text-2xl font-extrabold text-amber-700">{total}</div>
+            <div className="text-[11px] text-amber-600">pontos (últimas 10)</div>
+          </div>
+          <div className="rounded-2xl bg-slate-50 p-3 text-center">
+            <div className="text-2xl font-extrabold text-slate-700">{played.length}</div>
+            <div className="text-[11px] text-slate-500">jogos disputados</div>
+          </div>
+        </div>
+
+        {/* Jogos por rodada */}
+        <div className="mt-4">
+          <div className="mb-2 text-sm font-bold text-slate-700">Rodadas e jogos</div>
+          {!matches ? (
+            <Loading />
+          ) : matches.length === 0 ? (
+            <Empty text="Este jogador ainda não tem jogos." />
+          ) : (
+            <ul className="space-y-2">
+              {matches.map((m) => {
+                const gamesLabel = formatGames(m.games);
+                const isPlayed = m.status === "jogado";
+                return (
+                  <li key={m.match_id} className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="text-xs font-semibold text-slate-400">Rodada {m.round_number}</div>
+                        <div className="truncate text-sm font-medium">vs {m.opponent_name}</div>
+                        {m.scheduled_at && !isPlayed && (
+                          <div className="text-[11px] text-slate-500">
+                            📅 {new Date(m.scheduled_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                            {m.location ? ` · ${m.location}` : ""}
+                          </div>
+                        )}
+                      </div>
+                      <div className="shrink-0 text-right">
+                        {isPlayed ? (
+                          <>
+                            <div className="text-lg font-extrabold">
+                              {m.sets_player}<span className="mx-0.5 text-slate-300">x</span>{m.sets_opp}
+                            </div>
+                            {gamesLabel && <div className="text-[10px] text-slate-400">{gamesLabel}</div>}
+                            <div className="text-[11px] font-semibold text-amber-700">+{Number(m.points)} pts</div>
+                          </>
+                        ) : (
+                          <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase text-slate-600">
+                            {MATCH_STATUS_LABELS[m.status]}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

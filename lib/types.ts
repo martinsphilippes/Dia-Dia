@@ -467,6 +467,22 @@ export type MyLeagueMatch = {
   my_points: number;
 };
 
+export type PlayerLeagueMatch = {
+  match_id: string;
+  round_number: number;
+  opponent_name: string;
+  opponent_avatar: string | null;
+  is_challenger: boolean;
+  status: MatchStatus;
+  result_type: ResultType;
+  sets_player: number | null;
+  sets_opp: number | null;
+  games: SetGame[] | null;
+  points: number;
+  scheduled_at: string | null;
+  location: string | null;
+};
+
 export type MyPointsRow = {
   round_number: number;
   opponent_name: string;
