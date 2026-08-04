@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
+  CourtInfo,
   CourtRow,
   DayBooking,
   LeagueSchedule,
@@ -18,7 +19,7 @@ import {
 export function CourtsConfig({ leagueId }: { leagueId: string }) {
   const supabase = createClient();
   const [sched, setSched] = useState<LeagueSchedule | null>(null);
-  const [courts, setCourts] = useState<{ court_id: string; court_name: string }[]>([]);
+  const [courts, setCourts] = useState<CourtInfo[]>([]);
   const [bookingRequired, setBookingRequired] = useState(true);
 
   const load = useCallback(async () => {
@@ -29,7 +30,18 @@ export function CourtsConfig({ leagueId }: { leagueId: string }) {
     const schedule = (s as unknown as LeagueSchedule[])?.[0] ?? null;
     setSched(schedule);
     const rows = (c as unknown as CourtRow[]) ?? [];
-    setCourts(rows.filter((r) => r.court_id).map((r) => ({ court_id: r.court_id!, court_name: r.court_name! })));
+    setCourts(
+      rows
+        .filter((r) => r.court_id)
+        .map((r) => ({
+          court_id: r.court_id!,
+          court_name: r.court_name!,
+          match_days: r.match_days ?? [1, 2, 3, 4, 5, 6],
+          slot_start: (r.slot_start ?? "07:00").slice(0, 5),
+          slot_end: (r.slot_end ?? "22:00").slice(0, 5),
+          slot_minutes: r.slot_minutes ?? 60,
+        })),
+    );
     if (rows[0]) setBookingRequired(rows[0].booking_required);
   }, [supabase, leagueId]);
 
@@ -63,26 +75,24 @@ export function CourtsConfig({ leagueId }: { leagueId: string }) {
       </div>
 
       {manager ? (
-        <>
-          <ScheduleEditor clubId={sched.club_id} sched={sched} onChange={load} />
-          <CourtsManager
-            clubId={sched.club_id}
-            courts={courts}
-            bookingRequired={bookingRequired}
-            onChange={load}
-          />
-        </>
+        <CourtsManager
+          clubId={sched.club_id}
+          courts={courts}
+          bookingRequired={bookingRequired}
+          onChange={load}
+        />
       ) : (
         <div className="rounded-2xl bg-slate-50 p-3 text-sm text-slate-600">
-          <div className="text-xs">
-            Dias: {sched.match_days.map((d) => WEEKDAY_LABELS[d]).join(", ")} · Horário{" "}
-            {sched.slot_start.slice(0, 5)}–{sched.slot_end.slice(0, 5)} · jogos de {sched.slot_minutes} min ·{" "}
-            {bookingRequired ? "reserva obrigatória" : "sem reserva"}
+          <div className="mb-2 text-xs text-slate-500">
+            {bookingRequired ? "Reserva de quadra obrigatória." : "Reserva de quadra opcional."}
           </div>
-          <ul className="mt-2 flex flex-wrap gap-1.5">
+          <ul className="space-y-1.5">
             {courts.map((c) => (
-              <li key={c.court_id} className="rounded-full bg-white px-2.5 py-1 text-xs text-slate-600 ring-1 ring-slate-200">
-                {c.court_name}
+              <li key={c.court_id} className="rounded-xl bg-white px-3 py-2 ring-1 ring-slate-200">
+                <div className="text-sm font-semibold text-slate-700">{c.court_name}</div>
+                <div className="text-[11px] text-slate-500">
+                  {c.match_days.map((d) => WEEKDAY_LABELS[d]).join(", ")} · {c.slot_start}–{c.slot_end} · jogos de {c.slot_minutes} min
+                </div>
               </li>
             ))}
             {courts.length === 0 && <span className="text-xs text-slate-400">Sem quadras cadastradas.</span>}
@@ -184,93 +194,7 @@ function BindClub({ leagueId, onChange }: { leagueId: string; onChange: () => vo
   );
 }
 
-/* ---------------- Editor de agenda do clube ---------------- */
-function ScheduleEditor({
-  clubId,
-  sched,
-  onChange,
-}: {
-  clubId: string;
-  sched: LeagueSchedule;
-  onChange: () => void;
-}) {
-  const supabase = createClient();
-  const [days, setDays] = useState<number[]>(sched.match_days);
-  const [start, setStart] = useState(sched.slot_start.slice(0, 5));
-  const [end, setEnd] = useState(sched.slot_end.slice(0, 5));
-  const [mins, setMins] = useState(String(sched.slot_minutes));
-  const [busy, setBusy] = useState(false);
-  const [ok, setOk] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
-  function toggleDay(d: number) {
-    setDays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort()));
-  }
-
-  async function save() {
-    setBusy(true);
-    setErr(null);
-    setOk(false);
-    const { error } = await supabase.rpc("set_club_schedule", {
-      p_club_id: clubId,
-      p_days: days,
-      p_start: start,
-      p_end: end,
-      p_slot_minutes: Number(mins),
-    });
-    setBusy(false);
-    if (error) return setErr(error.message);
-    setOk(true);
-    onChange();
-  }
-
-  return (
-    <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-      <div className="text-sm font-bold text-amber-800">🗓️ Agenda do clube</div>
-      <p className="mt-1 text-xs text-amber-700">Dias e horários em que os jogos podem acontecer.</p>
-
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        {WEEKDAY_LABELS.map((lbl, d) => (
-          <button
-            key={d}
-            type="button"
-            onClick={() => toggleDay(d)}
-            className={`rounded-lg px-2.5 py-1 text-xs font-semibold ${
-              days.includes(d) ? "bg-amber-600 text-white" : "bg-white text-slate-500 ring-1 ring-slate-200"
-            }`}
-          >
-            {lbl}
-          </button>
-        ))}
-      </div>
-
-      <div className="mt-3 grid grid-cols-3 gap-2">
-        <div>
-          <label className="label">Início</label>
-          <input type="time" className="input" value={start} onChange={(e) => setStart(e.target.value)} />
-        </div>
-        <div>
-          <label className="label">Fim</label>
-          <input type="time" className="input" value={end} onChange={(e) => setEnd(e.target.value)} />
-        </div>
-        <div>
-          <label className="label">Min/jogo</label>
-          <input className="input" inputMode="numeric" value={mins} onChange={(e) => setMins(e.target.value)} />
-        </div>
-      </div>
-
-      {err && <p className="mt-2 text-xs text-red-600">{err}</p>}
-      <div className="mt-3 flex items-center gap-2">
-        <button onClick={save} disabled={busy} className="btn-primary text-xs">
-          {busy ? "Salvando..." : "Salvar agenda"}
-        </button>
-        {ok && <span className="text-xs font-semibold text-green-600">✓ salvo</span>}
-      </div>
-    </div>
-  );
-}
-
-/* ---------------- Quadras do clube ---------------- */
+/* ---------------- Quadras do clube (agenda por quadra) ---------------- */
 function CourtsManager({
   clubId,
   courts,
@@ -278,7 +202,7 @@ function CourtsManager({
   onChange,
 }: {
   clubId: string;
-  courts: { court_id: string; court_name: string }[];
+  courts: CourtInfo[];
   bookingRequired: boolean;
   onChange: () => void;
 }) {
@@ -296,6 +220,7 @@ function CourtsManager({
     onChange();
   }
   async function delCourt(id: string) {
+    if (!confirm("Remover esta quadra?")) return;
     await supabase.rpc("delete_court", { p_court_id: id });
     onChange();
   }
@@ -307,25 +232,21 @@ function CourtsManager({
   return (
     <div className="rounded-2xl border border-slate-100 bg-white p-4">
       <div className="flex items-center justify-between gap-2">
-        <div className="text-sm font-bold text-slate-700">🎾 Quadras</div>
+        <div className="text-sm font-bold text-slate-700">🎾 Quadras e horários</div>
         <button onClick={toggleRequired} className="text-[11px] font-semibold text-amber-700">
           {bookingRequired ? "Reserva obrigatória ✓" : "Sem reserva obrigatória"}
         </button>
       </div>
+      <p className="mt-1 text-xs text-slate-500">Cada quadra tem sua própria agenda. Sem dois jogos no mesmo horário e quadra.</p>
 
-      <ul className="mt-2 flex flex-wrap gap-1.5">
+      <div className="mt-3 space-y-2">
         {courts.map((ct) => (
-          <li key={ct.court_id} className="flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs text-slate-600">
-            {ct.court_name}
-            <button onClick={() => delCourt(ct.court_id)} className="text-slate-400 hover:text-red-500">
-              ✕
-            </button>
-          </li>
+          <CourtCard key={ct.court_id} court={ct} onDelete={() => delCourt(ct.court_id)} onChange={onChange} />
         ))}
-        {courts.length === 0 && <span className="text-xs text-slate-400">Sem quadras.</span>}
-      </ul>
+        {courts.length === 0 && <p className="text-xs text-slate-400">Nenhuma quadra cadastrada ainda.</p>}
+      </div>
 
-      <form onSubmit={addCourt} className="mt-2 flex gap-2">
+      <form onSubmit={addCourt} className="mt-3 flex gap-2">
         <input
           className="input flex-1 text-sm"
           placeholder="Nome da quadra (ex.: Quadra 02)"
@@ -336,6 +257,93 @@ function CourtsManager({
           Add
         </button>
       </form>
+    </div>
+  );
+}
+
+/* -------- Card de uma quadra com sua agenda -------- */
+function CourtCard({ court, onDelete, onChange }: { court: CourtInfo; onDelete: () => void; onChange: () => void }) {
+  const supabase = createClient();
+  const [days, setDays] = useState<number[]>(court.match_days);
+  const [start, setStart] = useState(court.slot_start);
+  const [end, setEnd] = useState(court.slot_end);
+  const [mins, setMins] = useState(String(court.slot_minutes));
+  const [busy, setBusy] = useState(false);
+  const [ok, setOk] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  function toggleDay(d: number) {
+    setDays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort()));
+  }
+
+  async function save() {
+    setBusy(true);
+    setErr(null);
+    setOk(false);
+    const { error } = await supabase.rpc("set_court_schedule", {
+      p_court_id: court.court_id,
+      p_days: days,
+      p_start: start,
+      p_end: end,
+      p_slot_minutes: Number(mins) || 60,
+    });
+    setBusy(false);
+    if (error) return setErr(error.message);
+    setOk(true);
+    setTimeout(() => setOk(false), 1500);
+    onChange();
+  }
+
+  return (
+    <div className="rounded-2xl bg-slate-50 p-3">
+      <div className="flex items-center justify-between">
+        <div className="text-sm font-bold text-slate-700">{court.court_name}</div>
+        <button onClick={onDelete} className="text-xs font-semibold text-red-500">Remover</button>
+      </div>
+
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {WEEKDAY_LABELS.map((lbl, d) => (
+          <button
+            key={d}
+            type="button"
+            onClick={() => toggleDay(d)}
+            className={`rounded-lg px-2.5 py-1 text-xs font-semibold ${
+              days.includes(d) ? "bg-amber-600 text-white" : "bg-white text-slate-500 ring-1 ring-slate-200"
+            }`}
+          >
+            {lbl}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-2 grid grid-cols-[1fr_1fr_4.5rem] gap-2">
+        <div>
+          <label className="label">Início</label>
+          <input type="time" className="input w-full min-w-0" value={start} onChange={(e) => setStart(e.target.value)} />
+        </div>
+        <div>
+          <label className="label">Fim</label>
+          <input type="time" className="input w-full min-w-0" value={end} onChange={(e) => setEnd(e.target.value)} />
+        </div>
+        <div>
+          <label className="label">Min</label>
+          <input
+            className="input w-full min-w-0 px-2 text-center"
+            inputMode="numeric"
+            maxLength={3}
+            value={mins}
+            onChange={(e) => setMins(e.target.value.replace(/\D/g, "").slice(0, 3))}
+          />
+        </div>
+      </div>
+
+      {err && <p className="mt-1 text-xs text-red-600">{err}</p>}
+      <div className="mt-2 flex items-center gap-2">
+        <button onClick={save} disabled={busy} className="btn-primary text-xs">
+          {busy ? "Salvando..." : "Salvar agenda"}
+        </button>
+        {ok && <span className="text-xs font-semibold text-green-600">✓ salvo</span>}
+      </div>
     </div>
   );
 }

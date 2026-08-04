@@ -399,6 +399,19 @@ export type CourtRow = {
   booking_required: boolean;
   court_id: string | null;
   court_name: string | null;
+  match_days: number[] | null;
+  slot_start: string | null;
+  slot_end: string | null;
+  slot_minutes: number | null;
+};
+
+export type CourtInfo = {
+  court_id: string;
+  court_name: string;
+  match_days: number[];
+  slot_start: string;
+  slot_end: string;
+  slot_minutes: number;
 };
 
 export type CourtAvailability = {
