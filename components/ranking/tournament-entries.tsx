@@ -181,9 +181,14 @@ export function TournamentEntries({
             </button>
           ))}
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row">
           <select
-            className="input h-9 flex-1 text-sm"
+            className="input flex-1 appearance-none bg-[right_0.75rem_center] bg-no-repeat pr-9 text-sm"
+            style={{
+              backgroundImage:
+                "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E\")",
+              backgroundSize: "1.1rem",
+            }}
             value={catFilter}
             onChange={(e) => setCatFilter(e.target.value)}
           >
@@ -195,7 +200,7 @@ export function TournamentEntries({
             ))}
           </select>
           <input
-            className="input h-9 flex-1 text-sm"
+            className="input flex-1 py-2.5 text-sm"
             placeholder="🔍 Buscar nome"
             value={q}
             onChange={(e) => setQ(e.target.value)}
