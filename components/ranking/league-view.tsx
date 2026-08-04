@@ -196,7 +196,7 @@ export function LeagueView({ leagueId, meId }: { leagueId: string; meId: string 
         </div>
 
         <div className="rounded-3xl bg-white p-5 shadow-card">
-          {tab === "classificacao" && <Standings leagueId={leagueId} meId={meId} />}
+          {tab === "classificacao" && <Standings leagueId={leagueId} meId={meId} roundPrefix={league.round_prefix} />}
           {tab === "rodadas" && <Rounds league={league} meId={meId} onChange={loadLeague} />}
           {tab === "jogos_marcados" && (
             <MyMatches leagueId={leagueId} meId={meId} onlyPending />
@@ -213,7 +213,7 @@ export function LeagueView({ leagueId, meId }: { leagueId: string; meId: string 
 }
 
 /* ---------------- Classificação ---------------- */
-function Standings({ leagueId, meId }: { leagueId: string; meId: string }) {
+function Standings({ leagueId, meId, roundPrefix }: { leagueId: string; meId: string; roundPrefix: string }) {
   const supabase = createClient();
   const [rows, setRows] = useState<Standing[] | null>(null);
   const [sel, setSel] = useState<Standing | null>(null);
@@ -270,7 +270,7 @@ function Standings({ leagueId, meId }: { leagueId: string; meId: string }) {
       <p className="mt-3 text-center text-[11px] text-slate-400">
         Toque em um jogador para ver os jogos e a pontuação dele.
       </p>
-      {sel && <PlayerProfile leagueId={leagueId} meId={meId} player={sel} onClose={() => setSel(null)} />}
+      {sel && <PlayerProfile leagueId={leagueId} meId={meId} player={sel} roundPrefix={roundPrefix} onClose={() => setSel(null)} />}
     </div>
   );
 }
@@ -282,11 +282,13 @@ function PlayerProfile({
   leagueId,
   meId,
   player,
+  roundPrefix,
   onClose,
 }: {
   leagueId: string;
   meId: string;
   player: Standing;
+  roundPrefix: string;
   onClose: () => void;
 }) {
   const supabase = createClient();
@@ -376,8 +378,8 @@ function PlayerProfile({
       <div className="mx-auto max-w-2xl px-4 py-5 pb-24">
         {tab === "h2h" && <H2HView leagueId={leagueId} meId={meId} player={player} />}
         {tab === "perfil" && <PerfilView profile={profile} />}
-        {tab === "jogos" && <JogosView matches={matches} playerName={player.name} />}
-        {tab === "pontuacao" && <PontuacaoView leagueId={leagueId} playerId={player.player_id} />}
+        {tab === "jogos" && <JogosView matches={matches} playerName={player.name} roundPrefix={roundPrefix} />}
+        {tab === "pontuacao" && <PontuacaoView leagueId={leagueId} playerId={player.player_id} roundPrefix={roundPrefix} />}
         {tab === "torneios" && <TorneiosView tours={tours} />}
       </div>
     </div>
@@ -556,7 +558,7 @@ function PerfilView({ profile }: { profile: RankingPlayerProfile | null }) {
 }
 
 /* -------- Jogos (placar por rodada, dois jogadores) -------- */
-function JogosView({ matches, playerName }: { matches: PlayerLeagueMatch[] | null; playerName: string }) {
+function JogosView({ matches, playerName, roundPrefix }: { matches: PlayerLeagueMatch[] | null; playerName: string; roundPrefix: string }) {
   if (!matches) return <Loading />;
   if (matches.length === 0) return <Empty text="Este jogador ainda não tem jogos." />;
 
@@ -571,7 +573,7 @@ function JogosView({ matches, playerName }: { matches: PlayerLeagueMatch[] | nul
     <div className="space-y-6">
       {rounds.map((rn) => (
         <div key={rn}>
-          <div className="mb-1 text-sm font-extrabold uppercase tracking-wide text-amber-600">Rodada {rn}</div>
+          <div className="mb-1 text-sm font-extrabold uppercase tracking-wide text-amber-600">Rodada {roundPrefix}{rn}</div>
           <div>
             {byRound.get(rn)!.map((m) => (
               <div key={m.match_id} className="border-b border-dashed border-slate-200 py-1 last:border-0">
@@ -632,7 +634,7 @@ function MatchScore({ m, playerName }: { m: PlayerLeagueMatch; playerName: strin
 }
 
 /* -------- Pontuação (tabela por rodada) -------- */
-function PontuacaoView({ leagueId, playerId }: { leagueId: string; playerId: string }) {
+function PontuacaoView({ leagueId, playerId, roundPrefix }: { leagueId: string; playerId: string; roundPrefix: string }) {
   const supabase = createClient();
   const [rows, setRows] = useState<PlayerRoundPoints[] | null>(null);
   const [open, setOpen] = useState<number | null>(null);
@@ -670,8 +672,8 @@ function PontuacaoView({ leagueId, playerId }: { leagueId: string; playerId: str
           return (
             <div key={r.round_number} className="border-t border-slate-50">
               <div className="flex items-center gap-3 px-3 py-2">
-                <span className="grid h-8 w-10 shrink-0 place-items-center rounded-lg bg-slate-500 text-xs font-black text-white">
-                  {r.round_number}
+                <span className="grid h-8 min-w-[2.5rem] shrink-0 place-items-center rounded-lg bg-slate-500 px-1 text-xs font-black text-white">
+                  {roundPrefix}{r.round_number}
                 </span>
                 <span className="flex-1 text-sm text-slate-600">{new Date(r.round_date).toLocaleDateString("pt-BR")}</span>
                 <span className="w-16 text-right text-sm font-bold text-slate-700">{Number(r.points)}</span>
@@ -755,6 +757,7 @@ function TorneiosView({ tours }: { tours: PlayerTournament[] | null }) {
                 <span className="font-semibold text-slate-700">{t.tournament_name}</span>
                 {" — "}
                 {t.category_name}
+                {t.note ? ` — ${t.note}` : ""}
                 <span className="ml-1 whitespace-nowrap text-xs text-slate-400">· {Number(t.wins)}V/{Number(t.losses)}D</span>
               </div>
             </div>
@@ -1236,6 +1239,7 @@ function About({ league, onChange }: { league: LeagueDetail; onChange: () => voi
   const [edit, setEdit] = useState(false);
   const [desc, setDesc] = useState(league.description || "");
   const [about, setAbout] = useState(league.about_text || "");
+  const [prefix, setPrefix] = useState(league.round_prefix || "");
   const [busy, setBusy] = useState(false);
 
   async function save(e: React.FormEvent) {
@@ -1245,6 +1249,7 @@ function About({ league, onChange }: { league: LeagueDetail; onChange: () => voi
       p_league_id: league.id,
       p_description: desc,
       p_about_text: about,
+      p_round_prefix: prefix,
     });
     setBusy(false);
     setEdit(false);
@@ -1261,6 +1266,17 @@ function About({ league, onChange }: { league: LeagueDetail; onChange: () => voi
         <div>
           <label className="label">Sobre a liga</label>
           <textarea className="input min-h-[120px]" value={about} onChange={(e) => setAbout(e.target.value)} />
+        </div>
+        <div>
+          <label className="label">Prefixo das rodadas</label>
+          <input
+            className="input"
+            maxLength={4}
+            placeholder="Ex: A (fica “Rodada A9”). Deixe vazio para só o número."
+            value={prefix}
+            onChange={(e) => setPrefix(e.target.value)}
+          />
+          <p className="mt-1 text-xs text-slate-400">Aparece antes do número da rodada em Jogos e Pontuação.</p>
         </div>
         <div className="flex gap-2">
           <button className="btn-primary text-sm" disabled={busy}>{busy ? "Salvando..." : "Salvar"}</button>

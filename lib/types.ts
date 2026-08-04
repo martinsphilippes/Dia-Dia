@@ -246,6 +246,7 @@ export type LeagueDetail = {
   club_id: string | null;
   club_name: string | null;
   status: "ativo" | "arquivado";
+  round_prefix: string;
 };
 
 export type ArchivedLeague = {
@@ -532,6 +533,7 @@ export type PlayerTournament = {
   tournament_name: string;
   category_id: string;
   category_name: string;
+  note: string | null;
   placement: string;
   is_champion: boolean;
   wins: number;
@@ -632,6 +634,7 @@ export type TournamentCategory = {
   has_bracket: boolean;
   format: TournamentFormat;
   advance_per_group: number | null;
+  note: string | null;
 };
 
 export type CategoryEntry = {

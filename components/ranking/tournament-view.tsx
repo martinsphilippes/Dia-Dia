@@ -298,6 +298,8 @@ function CategoryPanel({
   const [fmt, setFmt] = useState<TournamentFormat>("eliminatoria");
   const [advance, setAdvance] = useState<1 | 2>(2);
   const [seedIds, setSeedIds] = useState<string[]>([]);
+  const [note, setNote] = useState(category.note ?? "");
+  const [noteSaved, setNoteSaved] = useState(false);
 
   const load = useCallback(async () => {
     const [{ data: e }, { data: b }, { data: g }, { data: gm }] = await Promise.all([
@@ -326,6 +328,13 @@ function CategoryPanel({
   const hasKnockout = (bracket ?? []).length > 0;
   const hasGroups = (groupMatches ?? []).length > 0;
   const fromGroups = category.format === "grupos";
+
+  async function saveNote() {
+    await supabase.rpc("set_category_note", { p_category_id: categoryId, p_note: note.trim() || null });
+    setNoteSaved(true);
+    setTimeout(() => setNoteSaved(false), 2000);
+    onChange();
+  }
 
   function toggleSeed(id: string) {
     setSeedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -403,6 +412,24 @@ function CategoryPanel({
           </span>
         )}
       </div>
+
+      {isMgr ? (
+        <div className="mt-3 rounded-2xl bg-slate-50 p-3">
+          <label className="text-xs font-bold uppercase tracking-wide text-slate-500">Observação da categoria</label>
+          <div className="mt-1.5 flex gap-2">
+            <input
+              className="input flex-1 text-sm"
+              placeholder="Ex: 250 pontos no Ranking"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+            />
+            <button onClick={saveNote} className="btn-ghost text-sm">{noteSaved ? "✓" : "Salvar"}</button>
+          </div>
+          <p className="mt-1 text-[11px] text-slate-400">Aparece na aba Torneios do jogador (ex.: pontos, premiação).</p>
+        </div>
+      ) : (
+        category.note && <p className="mt-2 text-xs text-slate-500">📝 {category.note}</p>
+      )}
 
       {!hasKnockout && !hasGroups ? (
         /* ---------- Pré-geração: inscritos, cabeças de chave, formato ---------- */
