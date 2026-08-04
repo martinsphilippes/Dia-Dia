@@ -6,9 +6,12 @@ import { BackButton } from "@/components/back-button";
 import {
   CLASS_LABELS,
   FORMAT_LABELS,
+  TOURNAMENT_STATUS_LABELS,
   type AdminMatchRow,
   type AdminProfileRow,
+  type AdminTournamentRow,
   type ArchivedLeague,
+  type TournamentStatus,
 } from "@/lib/types";
 
 function fmtDate(iso: string) {
@@ -26,18 +29,21 @@ export function AdminDashboard() {
   const [profiles, setProfiles] = useState<AdminProfileRow[]>([]);
   const [matches, setMatches] = useState<AdminMatchRow[]>([]);
   const [archived, setArchived] = useState<ArchivedLeague[]>([]);
+  const [tournaments, setTournaments] = useState<AdminTournamentRow[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [query, setQuery] = useState("");
 
   const load = useCallback(async () => {
-    const [{ data: p }, { data: m }, { data: a }] = await Promise.all([
+    const [{ data: p }, { data: m }, { data: a }, { data: tr }] = await Promise.all([
       supabase.rpc("admin_all_profiles"),
       supabase.rpc("admin_all_matches"),
       supabase.rpc("admin_archived_leagues"),
+      supabase.rpc("admin_all_tournaments"),
     ]);
     setProfiles((p as unknown as AdminProfileRow[]) ?? []);
     setMatches((m as unknown as AdminMatchRow[]) ?? []);
     setArchived((a as unknown as ArchivedLeague[]) ?? []);
+    setTournaments((tr as unknown as AdminTournamentRow[]) ?? []);
   }, [supabase]);
 
   async function restore(id: string) {
@@ -56,6 +62,20 @@ export function AdminDashboard() {
       return;
     setBusy(id);
     const { error } = await supabase.rpc("admin_delete_league", { p_league_id: id });
+    if (error) alert(error.message);
+    await load();
+    setBusy(null);
+  }
+
+  async function removeTournament(id: string, name: string, entries: number) {
+    if (
+      !confirm(
+        `Excluir definitivamente o torneio "${name}"? Esta ação não pode ser desfeita — apaga categorias, ${entries} inscrito(s) e todo o chaveamento.`,
+      )
+    )
+      return;
+    setBusy(id);
+    const { error } = await supabase.rpc("admin_delete_tournament", { p_tournament_id: id });
     if (error) alert(error.message);
     await load();
     setBusy(null);
@@ -275,6 +295,46 @@ export function AdminDashboard() {
                     Excluir
                   </button>
                 </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="mt-10">
+        <h2 className="mb-3 text-lg font-bold">Torneios 🏆</h2>
+        {tournaments.length === 0 ? (
+          <p className="rounded-2xl border border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-400">
+            Nenhum torneio criado.
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {tournaments.map((tr) => (
+              <li
+                key={tr.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3"
+              >
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold">{tr.name}</span>
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">
+                      {TOURNAMENT_STATUS_LABELS[tr.status as TournamentStatus] ?? tr.status}
+                    </span>
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    {tr.city ? `${tr.city} · ` : ""}organizador: {tr.organizer_name} · {fmtDate(tr.created_at)}
+                  </div>
+                  <div className="text-xs text-slate-400">
+                    {tr.category_count} categoria(s) · {tr.entry_count} inscrito(s)
+                  </div>
+                </div>
+                <button
+                  onClick={() => removeTournament(tr.id, tr.name, tr.entry_count)}
+                  disabled={busy === tr.id}
+                  className="shrink-0 rounded-full bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 ring-1 ring-red-200"
+                >
+                  {busy === tr.id ? "..." : "Excluir"}
+                </button>
               </li>
             ))}
           </ul>

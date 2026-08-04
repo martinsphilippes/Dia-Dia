@@ -140,6 +140,17 @@ export type AdminMatchRow = {
   message_count: number;
 };
 
+export type AdminTournamentRow = {
+  id: string;
+  name: string;
+  city: string | null;
+  status: string;
+  organizer_name: string;
+  category_count: number;
+  entry_count: number;
+  created_at: string;
+};
+
 export type MatchSummary = {
   match_id: string;
   matched_at: string;
