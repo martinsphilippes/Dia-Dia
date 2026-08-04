@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { IconBack } from "@/components/icons";
 import { NearbyLeagues, MyInvites } from "@/components/ranking/discovery";
 import { NotificationsBell } from "@/components/matchpoint/notifications-bell";
 import { cachedRpc, invalidateCache } from "@/lib/cache";
@@ -121,12 +120,12 @@ export function RankingHub({ isOwner }: { isOwner: boolean }) {
     <main className="min-h-[100dvh] bg-amber-50/40">
       <header className="pt-safe bg-gradient-to-br from-amber-500 to-amber-700 px-5 pb-10 text-white">
         <div className="mx-auto flex max-w-2xl items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button onClick={() => router.back()} className="text-sm text-amber-50">
+          <div className="flex items-center gap-4">
+            <button onClick={() => router.back()} className="text-sm font-semibold text-amber-50">
               ← Voltar
             </button>
-            <Link href="/inicio" className="flex items-center gap-1 text-sm text-amber-50">
-              <IconBack className="h-5 w-5" /> Início
+            <Link href="/inicio" className="text-sm font-semibold text-amber-50">
+              🏠 Início
             </Link>
           </div>
           <div className="flex items-center gap-3">

@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { IconBack } from "@/components/icons";
 import { cx, initials } from "@/lib/utils";
 import { TournamentEntries } from "@/components/ranking/tournament-entries";
 import {
@@ -26,6 +26,7 @@ export function TournamentView({
   meId: string;
 }) {
   const supabase = createClient();
+  const router = useRouter();
   const [t, setT] = useState<TournamentDetail | null>(null);
   const [cats, setCats] = useState<TournamentCategory[]>([]);
   const [selCat, setSelCat] = useState<string | null>(null);
@@ -118,10 +119,12 @@ export function TournamentView({
     <main className="min-h-[100dvh] bg-amber-50/40">
       <header className="pt-safe bg-gradient-to-br from-amber-500 to-amber-700 px-5 pb-12 text-white">
         <div className="mx-auto flex max-w-3xl items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link href="/inicio" className="text-sm text-amber-50">🏠 Início</Link>
-            <Link href="/ranking" className="flex items-center gap-1 text-sm text-amber-50">
-              <IconBack className="h-5 w-5" /> Ranking
+          <div className="flex items-center gap-4">
+            <button onClick={() => router.back()} className="text-sm font-semibold text-amber-50">
+              ← Voltar
+            </button>
+            <Link href="/inicio" className="text-sm font-semibold text-amber-50">
+              🏠 Início
             </Link>
           </div>
           <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-semibold ring-1 ring-white/25">
