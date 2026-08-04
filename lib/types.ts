@@ -532,8 +532,21 @@ export type PlayerTournament = {
   tournament_name: string;
   category_id: string;
   category_name: string;
+  placement: string;
   is_champion: boolean;
   wins: number;
+  losses: number;
+};
+
+export type PlayerRoundPoints = {
+  round_number: number;
+  round_date: string;
+  points: number;
+  opponent_name: string;
+  sets_player: number | null;
+  sets_opp: number | null;
+  games: SetGame[] | null;
+  status: MatchStatus;
 };
 
 export type MyPointsRow = {

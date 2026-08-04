@@ -26,6 +26,7 @@ import {
   MyLeagueMatch,
   MyPointsRow,
   PlayerLeagueMatch,
+  PlayerRoundPoints,
   PlayerTournament,
   RankingPlayerProfile,
   RoundInfo,
@@ -277,11 +278,6 @@ function Standings({ leagueId, meId }: { leagueId: string; meId: string }) {
 /* ---------------- Página pública de um jogador (abas) ---------------- */
 type PTab = "h2h" | "perfil" | "jogos" | "pontuacao" | "torneios";
 
-function outcome(m: PlayerLeagueMatch): "win" | "loss" | null {
-  if (m.status !== "jogado" || m.sets_player == null || m.sets_opp == null) return null;
-  return m.sets_player > m.sets_opp ? "win" : "loss";
-}
-
 function PlayerProfile({
   leagueId,
   meId,
@@ -381,7 +377,7 @@ function PlayerProfile({
         {tab === "h2h" && <H2HView leagueId={leagueId} meId={meId} player={player} />}
         {tab === "perfil" && <PerfilView profile={profile} />}
         {tab === "jogos" && <JogosView matches={matches} playerName={player.name} />}
-        {tab === "pontuacao" && <PontuacaoView matches={matches} />}
+        {tab === "pontuacao" && <PontuacaoView leagueId={leagueId} playerId={player.player_id} />}
         {tab === "torneios" && <TorneiosView tours={tours} />}
       </div>
     </div>
@@ -389,7 +385,7 @@ function PlayerProfile({
 }
 
 /* -------- Head2Head -------- */
-function WinRing({ a, b }: { a: number; b: number }) {
+function WinRing({ a, b, hideCenter }: { a: number; b: number; hideCenter?: boolean }) {
   const total = a + b;
   const frac = total ? a / total : 0;
   const r = 52;
@@ -410,9 +406,11 @@ function WinRing({ a, b }: { a: number; b: number }) {
           transform="rotate(-90 60 60)"
         />
       )}
-      <text x="60" y="61" textAnchor="middle" dominantBaseline="central" fontSize="30" fontWeight="800" className="fill-slate-800">
-        {a}
-      </text>
+      {!hideCenter && (
+        <text x="60" y="61" textAnchor="middle" dominantBaseline="central" fontSize="30" fontWeight="800" className="fill-slate-800">
+          {a}
+        </text>
+      )}
     </svg>
   );
 }
@@ -633,108 +631,135 @@ function MatchScore({ m, playerName }: { m: PlayerLeagueMatch; playerName: strin
   );
 }
 
-/* -------- Pontuação (últimas 10 rodadas, expansível) -------- */
-function PontuacaoView({ matches }: { matches: PlayerLeagueMatch[] | null }) {
-  const [open, setOpen] = useState<string | null>(null);
-  if (!matches) return <Loading />;
-  const played = matches.filter((m) => m.status === "jogado").slice(0, 10);
-  const total = played.reduce((s, m) => s + Number(m.points), 0);
-  if (played.length === 0) return <Empty text="Sem jogos pontuados ainda." />;
+/* -------- Pontuação (tabela por rodada) -------- */
+function PontuacaoView({ leagueId, playerId }: { leagueId: string; playerId: string }) {
+  const supabase = createClient();
+  const [rows, setRows] = useState<PlayerRoundPoints[] | null>(null);
+  const [open, setOpen] = useState<number | null>(null);
+
+  useEffect(() => {
+    supabase
+      .rpc("get_player_round_points", { p_league_id: leagueId, p_player_id: playerId })
+      .then(({ data }) => setRows((data as unknown as PlayerRoundPoints[]) ?? []));
+  }, [supabase, leagueId, playerId]);
+
+  if (!rows) return <Loading />;
+  if (rows.length === 0) return <Empty text="Sem rodadas ainda." />;
+
   return (
     <div className="space-y-4">
-      <div className="rounded-3xl bg-amber-50 p-5 text-center">
-        <div className="text-4xl font-black text-amber-700">{total}</div>
-        <div className="text-xs font-semibold text-amber-600">pontos nas últimas {played.length} rodada(s)</div>
+      <div className="flex items-start gap-2 rounded-2xl bg-slate-100 px-4 py-3 text-xs text-slate-500">
+        <span>ℹ️</span>
+        <span>A pontuação é a soma das últimas 10 rodadas.</span>
       </div>
-      <ul className="space-y-2">
-        {played.map((m) => {
-          const isOpen = open === m.match_id;
-          const out = outcome(m);
+      <div className="rounded-3xl bg-white p-2 shadow-card">
+        <div className="flex items-center gap-3 px-3 pb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+          <span className="w-10">rodada</span>
+          <span className="flex-1">data</span>
+          <span className="w-16 text-right">pts na rodada</span>
+          <span className="w-10 text-center">detalhar</span>
+        </div>
+        {rows.map((r) => {
+          const isOpen = open === r.round_number;
+          const out =
+            r.status === "jogado" && r.sets_player != null && r.sets_opp != null
+              ? r.sets_player > r.sets_opp
+                ? "win"
+                : "loss"
+              : null;
           return (
-            <li key={m.match_id} className="rounded-2xl bg-white shadow-sm ring-1 ring-slate-100">
-              <button
-                onClick={() => setOpen(isOpen ? null : m.match_id)}
-                className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
-              >
-                <div className="min-w-0">
-                  <div className="text-sm font-bold">Rodada {m.round_number}</div>
-                  {m.scheduled_at && (
-                    <div className="text-[11px] text-slate-400">
-                      {new Date(m.scheduled_at).toLocaleDateString("pt-BR")}
-                    </div>
-                  )}
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-extrabold text-amber-700">{Number(m.points)} pts</span>
-                  <span className="grid h-6 w-6 place-items-center rounded-full bg-slate-100 text-slate-500">
-                    {isOpen ? "−" : "+"}
-                  </span>
-                </div>
-              </button>
+            <div key={r.round_number} className="border-t border-slate-50">
+              <div className="flex items-center gap-3 px-3 py-2">
+                <span className="grid h-8 w-10 shrink-0 place-items-center rounded-lg bg-slate-500 text-xs font-black text-white">
+                  {r.round_number}
+                </span>
+                <span className="flex-1 text-sm text-slate-600">{new Date(r.round_date).toLocaleDateString("pt-BR")}</span>
+                <span className="w-16 text-right text-sm font-bold text-slate-700">{Number(r.points)}</span>
+                <button onClick={() => setOpen(isOpen ? null : r.round_number)} className="grid w-10 place-items-center" aria-label="Detalhar">
+                  <span className="grid h-7 w-7 place-items-center rounded-full text-slate-500 ring-1 ring-slate-300">{isOpen ? "−" : "+"}</span>
+                </button>
+              </div>
               {isOpen && (
-                <div className="border-t border-slate-100 px-4 py-3">
-                  <div className="flex items-center justify-between gap-2">
+                <div className="px-3 pb-3">
+                  <div className="flex items-center justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2">
                     <span className="truncate text-sm">
-                      vs <span className="font-medium">{m.opponent_name}</span>
+                      vs <span className="font-medium">{r.opponent_name}</span>
                       {out && (
                         <span className={cx("ml-2 text-xs font-bold", out === "win" ? "text-court-700" : "text-red-600")}>
                           {out === "win" ? "Vitória" : "Derrota"}
                         </span>
                       )}
                     </span>
-                    <span className="text-base font-extrabold">
-                      {m.sets_player}<span className="mx-0.5 text-slate-300">x</span>{m.sets_opp}
-                    </span>
+                    {r.status === "jogado" ? (
+                      <span className="text-base font-extrabold">
+                        {r.sets_player}<span className="mx-0.5 text-slate-300">x</span>{r.sets_opp}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-semibold uppercase text-slate-400">{MATCH_STATUS_LABELS[r.status]}</span>
+                    )}
                   </div>
-                  {formatGames(m.games) && <div className="mt-0.5 text-[11px] text-slate-400">{formatGames(m.games)}</div>}
+                  {formatGames(r.games) && <div className="mt-1 px-1 text-[11px] text-slate-400">{formatGames(r.games)}</div>}
                 </div>
               )}
-            </li>
+            </div>
           );
         })}
-      </ul>
+      </div>
     </div>
   );
 }
 
 /* -------- Torneios -------- */
+function tourIcon(placement: string) {
+  if (placement === "Campeão") return "🏆";
+  if (placement === "Vice-campeão") return "🥈";
+  if (placement === "Semifinalista") return "🥉";
+  return "🎾";
+}
+
 function TorneiosView({ tours }: { tours: PlayerTournament[] | null }) {
   if (!tours) return <Loading />;
-  const totalWins = tours.reduce((s, t) => s + Number(t.wins), 0);
-  const titles = tours.filter((t) => t.is_champion).length;
+  const wins = tours.reduce((s, t) => s + Number(t.wins), 0);
+  const losses = tours.reduce((s, t) => s + Number(t.losses), 0);
+
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-2">
-        <div className="rounded-2xl bg-amber-50 p-4 text-center">
-          <div className="text-3xl font-black text-amber-700">{totalWins}</div>
-          <div className="text-[11px] font-semibold text-amber-600">vitórias em torneios</div>
-        </div>
-        <div className="rounded-2xl bg-slate-50 p-4 text-center">
-          <div className="text-3xl font-black text-slate-700">{titles}</div>
-          <div className="text-[11px] font-semibold text-slate-500">título(s)</div>
+    <div className="space-y-5">
+      {/* Vitórias x derrotas */}
+      <div className="rounded-3xl bg-white p-5 shadow-card">
+        <div className="flex items-center justify-center gap-5">
+          <div className="text-right">
+            <div className="text-2xl font-black text-amber-600">{wins}</div>
+            <div className="text-xs text-slate-400">vitórias</div>
+          </div>
+          <WinRing a={wins} b={losses} hideCenter />
+          <div className="text-left">
+            <div className="text-2xl font-black text-slate-400">{losses}</div>
+            <div className="text-xs text-slate-400">derrotas</div>
+          </div>
         </div>
       </div>
+
+      {/* Conquistas */}
       {tours.length === 0 ? (
         <Empty text="Este jogador ainda não participou de torneios." />
       ) : (
-        <ul className="space-y-2">
+        <div className="rounded-3xl bg-white p-2 shadow-card">
           {tours.map((t) => (
-            <li
+            <div
               key={`${t.tournament_id}-${t.category_id}`}
-              className="flex items-center justify-between gap-3 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-100"
+              className="flex items-start gap-3 border-b border-dashed border-slate-200 px-3 py-3 last:border-0"
             >
-              <div className="min-w-0">
-                <div className="truncate text-sm font-semibold">
-                  {t.is_champion && "🏆 "}
-                  {t.is_champion ? "Campeão em " : ""}
-                  {t.tournament_name}
-                </div>
-                <div className="text-xs text-slate-500">{t.category_name}</div>
+              <span className="text-xl leading-none">{tourIcon(t.placement)}</span>
+              <div className="min-w-0 flex-1 text-sm text-slate-600">
+                <span className="font-bold text-amber-700">{t.placement}</span> em{" "}
+                <span className="font-semibold text-slate-700">{t.tournament_name}</span>
+                {" — "}
+                {t.category_name}
+                <span className="ml-1 whitespace-nowrap text-xs text-slate-400">· {Number(t.wins)}V/{Number(t.losses)}D</span>
               </div>
-              <span className="shrink-0 text-xs font-semibold text-slate-400">{Number(t.wins)} vit.</span>
-            </li>
+            </div>
           ))}
-        </ul>
+        </div>
       )}
     </div>
   );
