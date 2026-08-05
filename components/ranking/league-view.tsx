@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { calcAge, cx, initials } from "@/lib/utils";
+import { useDebouncedValue } from "@/lib/use-debounce";
 import { ResultForm, formatGames } from "@/components/ranking/result-form";
 import { CourtScheduler } from "@/components/ranking/court-scheduler";
 import { CourtsConfig } from "@/components/ranking/courts-config";
@@ -32,6 +33,7 @@ import {
   RoundInfo,
   RoundMatch,
   Standing,
+  UserSearchRow,
 } from "@/lib/types";
 
 type Tab =
@@ -1570,6 +1572,11 @@ function MembersPanel({
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
+  // Busca de usuários (dono) para adicionar/tornar organizador direto
+  const [uq, setUq] = useState("");
+  const [uResults, setUResults] = useState<UserSearchRow[] | null>(null);
+  const dUq = useDebouncedValue(uq, 350);
+
   const load = useCallback(async () => {
     const { data } = await supabase.rpc("get_league_members", { p_league_id: league.id });
     setMembers((data as unknown as LeagueMember[]) ?? []);
@@ -1578,6 +1585,47 @@ function MembersPanel({
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (!league.is_owner) return;
+    if (dUq.trim().length < 2) {
+      setUResults(null);
+      return;
+    }
+    let alive = true;
+    supabase
+      .rpc("admin_search_users", { p_q: dUq.trim(), p_league_id: league.id })
+      .then(({ data }) => {
+        if (alive) setUResults((data as unknown as UserSearchRow[]) ?? []);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [supabase, dUq, league.is_owner, league.id]);
+
+  async function addUser(playerId: string) {
+    setBusy(true);
+    setMsg(null);
+    await supabase.rpc("add_league_member_by_id", { p_league_id: league.id, p_player_id: playerId });
+    setBusy(false);
+    await load();
+    onChange();
+  }
+
+  async function makeOrganizerDirect(playerId: string) {
+    setBusy(true);
+    setMsg(null);
+    const { error } = await supabase.rpc("set_league_organizer", {
+      p_league_id: league.id,
+      p_player_id: playerId,
+    });
+    setBusy(false);
+    if (error) return setMsg(error.message);
+    setUq("");
+    setUResults(null);
+    await load();
+    onChange();
+  }
 
   async function makeOrganizer(playerId: string) {
     setBusy(true);
@@ -1640,15 +1688,74 @@ function MembersPanel({
       </p>
 
       {league.is_owner && (
-        <form onSubmit={addByEmail} className="mt-3 flex gap-2">
-          <input
-            className="input flex-1"
-            placeholder="Adicionar login por email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <button className="btn-ghost text-sm">Add</button>
-        </form>
+        <div className="mt-3 space-y-3">
+          {/* Buscar qualquer pessoa cadastrada pelo nome e tornar organizador direto */}
+          <div className="rounded-xl border border-amber-200 bg-white p-3">
+            <div className="text-xs font-bold text-amber-800">👑 Adicionar / tornar organizador</div>
+            <p className="mt-0.5 text-[11px] text-slate-500">
+              Busque qualquer pessoa cadastrada pelo nome (ou e-mail) e adicione direto — sem
+              precisar de convite.
+            </p>
+            <input
+              className="input mt-2"
+              placeholder="Buscar pessoa pelo nome ou e-mail"
+              value={uq}
+              onChange={(e) => setUq(e.target.value)}
+            />
+            {uResults && (
+              <ul className="mt-2 space-y-1.5">
+                {uResults.length === 0 ? (
+                  <li className="px-1 py-1 text-xs text-slate-400">Ninguém encontrado.</li>
+                ) : (
+                  uResults.map((u) => (
+                    <li
+                      key={u.id}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-50 px-2.5 py-2"
+                    >
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-semibold">{u.name || u.email}</div>
+                        <div className="truncate text-[11px] text-slate-500">
+                          {u.email ?? ""}
+                          {u.city ? ` · ${u.city}` : ""}
+                          {!u.onboarded ? " · cadastro incompleto" : ""}
+                          {u.is_member ? " · já participa" : ""}
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        {!u.is_member && (
+                          <button
+                            onClick={() => addUser(u.id)}
+                            disabled={busy}
+                            className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600"
+                          >
+                            Adicionar
+                          </button>
+                        )}
+                        <button
+                          onClick={() => makeOrganizerDirect(u.id)}
+                          disabled={busy}
+                          className="btn-primary text-xs"
+                        >
+                          Tornar organizador
+                        </button>
+                      </div>
+                    </li>
+                  ))
+                )}
+              </ul>
+            )}
+          </div>
+
+          <form onSubmit={addByEmail} className="flex gap-2">
+            <input
+              className="input flex-1"
+              placeholder="Adicionar login por email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+            <button className="btn-ghost text-sm">Add</button>
+          </form>
+        </div>
       )}
       {msg && <p className="mt-2 text-xs text-red-600">{msg}</p>}
 

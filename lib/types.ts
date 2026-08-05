@@ -303,6 +303,15 @@ export type NearbyLeague = {
   is_organizer: boolean;
 };
 
+export type UserSearchRow = {
+  id: string;
+  name: string;
+  email: string | null;
+  city: string | null;
+  onboarded: boolean;
+  is_member: boolean;
+};
+
 export type NearbyTournament = {
   id: string;
   name: string;
