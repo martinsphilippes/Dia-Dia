@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { NearbyLeagues, MyInvites } from "@/components/ranking/discovery";
+import { NearbyLeagues, NearbyTournaments, MyInvites } from "@/components/ranking/discovery";
 import { NotificationsBell } from "@/components/matchpoint/notifications-bell";
 import { cachedRpc, invalidateCache } from "@/lib/cache";
 import { PlaceAutocomplete } from "@/components/place-autocomplete";
@@ -348,6 +348,9 @@ export function RankingHub({ isOwner }: { isOwner: boolean }) {
               </DashedButton>
             ))}
         </section>
+
+        {/* Torneios próximos (diretório por cidade) */}
+        <NearbyTournaments />
 
         {/* Inscrições abertas */}
         {openToursToShow.length > 0 && (

@@ -298,6 +298,21 @@ export type NearbyLeague = {
   status: string;
   my_request_status: string | null;
   has_invite: boolean;
+  visibility: LeagueVisibility;
+  am_member: boolean;
+  is_organizer: boolean;
+};
+
+export type NearbyTournament = {
+  id: string;
+  name: string;
+  city: string | null;
+  organizer_name: string | null;
+  status: TournamentStatus;
+  category_count: number;
+  entry_count: number;
+  am_entered: boolean;
+  is_organizer: boolean;
 };
 
 export type JoinRequest = {

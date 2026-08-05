@@ -12,8 +12,10 @@ import {
   LeagueDiscovery,
   MyRankingInvite,
   NearbyLeague,
+  NearbyTournament,
   PossibleAthlete,
   SKILL_CLASSES,
+  TOURNAMENT_STATUS_LABELS,
   VISIBILITY_LABELS,
   LeagueVisibility,
 } from "@/lib/types";
@@ -21,6 +23,21 @@ import { initials } from "@/lib/utils";
 import { useDebouncedValue } from "@/lib/use-debounce";
 import { useIncremental } from "@/lib/use-incremental";
 import { RowSkeletons } from "@/components/skeleton";
+
+/* ============ Selo de visibilidade (público / privado) ============ */
+const SELF_JOIN: LeagueVisibility[] = ["public_approval", "nearby_only"];
+
+function VisibilityBadge({ v }: { v: LeagueVisibility }) {
+  const map: Record<LeagueVisibility, { label: string; cls: string }> = {
+    public_approval: { label: "Público", cls: "bg-green-100 text-green-700" },
+    nearby_only: { label: "Público (perto)", cls: "bg-green-100 text-green-700" },
+    private: { label: "Privado", cls: "bg-slate-200 text-slate-600" },
+    invite_only: { label: "Só por convite", cls: "bg-slate-200 text-slate-600" },
+    closed: { label: "Fechado", cls: "bg-red-100 text-red-700" },
+  };
+  const it = map[v] ?? map.private;
+  return <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${it.cls}`}>{it.label}</span>;
+}
 
 /* ============ Jogador: rankings próximos ============ */
 export function NearbyLeagues() {
@@ -108,9 +125,12 @@ export function NearbyLeagues() {
             <li key={l.id} className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <Link href={`/ranking/${l.id}`} className="font-semibold hover:underline">
-                    {l.name}
-                  </Link>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <Link href={`/ranking/${l.id}`} className="font-semibold hover:underline">
+                      {l.name}
+                    </Link>
+                    <VisibilityBadge v={l.visibility} />
+                  </div>
                   <div className="text-xs text-slate-500">
                     {l.club_name ? `${l.club_name} · ` : ""}
                     {l.city ?? ""}
@@ -121,7 +141,19 @@ export function NearbyLeagues() {
                     {l.member_count} participante{l.member_count === 1 ? "" : "s"}
                   </div>
                 </div>
-                {l.has_invite ? (
+                {/* Ação conforme a regra do ranking */}
+                {l.is_organizer ? (
+                  <span className="shrink-0 rounded-full bg-amber-100 px-3 py-1.5 text-xs font-bold text-amber-700">
+                    Organizador
+                  </span>
+                ) : l.am_member ? (
+                  <Link
+                    href={`/ranking/${l.id}`}
+                    className="shrink-0 rounded-full bg-green-100 px-3 py-1.5 text-xs font-bold text-green-700"
+                  >
+                    Você participa
+                  </Link>
+                ) : l.has_invite ? (
                   <span className="shrink-0 rounded-full bg-court-100 px-3 py-1.5 text-xs font-bold text-court-700">
                     Convite recebido
                   </span>
@@ -133,7 +165,7 @@ export function NearbyLeagues() {
                   >
                     Solicitação pendente ✕
                   </button>
-                ) : (
+                ) : SELF_JOIN.includes(l.visibility) ? (
                   <button
                     onClick={() => request(l.id)}
                     disabled={busy === l.id}
@@ -141,6 +173,112 @@ export function NearbyLeagues() {
                   >
                     {busy === l.id ? "..." : "Solicitar entrada"}
                   </button>
+                ) : (
+                  <span className="shrink-0 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-500">
+                    {l.visibility === "closed" ? "🔒 Fechado" : "🔒 Só por convite"}
+                  </span>
+                )}
+              </div>
+            </li>
+          ))}
+          {hasMore && (
+            <li>
+              <button onClick={more} className="btn-ghost w-full text-sm">
+                Ver mais
+              </button>
+            </li>
+          )}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/* ============ Jogador: torneios próximos ============ */
+export function NearbyTournaments() {
+  const supabase = createClient();
+  const [rows, setRows] = useState<NearbyTournament[] | null>(null);
+  const [city, setCity] = useState("");
+  const dCity = useDebouncedValue(city, 400);
+
+  const load = useCallback(async () => {
+    setRows(null);
+    const { data } = await supabase.rpc("discover_tournaments", {
+      p_city: dCity.trim() || null,
+    });
+    setRows((data as unknown as NearbyTournament[]) ?? []);
+  }, [supabase, dCity]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const { visible, hasMore, more } = useIncremental(rows ?? [], 20);
+
+  return (
+    <section className="rounded-3xl bg-white p-5 shadow-card">
+      <h2 className="text-lg font-bold">Torneios próximos de você</h2>
+      <div className="mt-3">
+        <PlaceAutocomplete cityOnly className="input w-full text-sm" placeholder="Cidade" value={city} onChange={setCity} />
+      </div>
+
+      {!rows ? (
+        <div className="mt-3">
+          <RowSkeletons count={3} />
+        </div>
+      ) : rows.length === 0 ? (
+        <p className="mt-4 text-sm text-slate-500">Nenhum torneio nessa cidade no momento.</p>
+      ) : (
+        <ul className="mt-3 space-y-2">
+          {visible.map((t) => (
+            <li key={t.id} className="rounded-2xl border border-slate-100 bg-slate-50 p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <Link href={`/ranking/torneio/${t.id}`} className="font-semibold hover:underline">
+                      {t.name}
+                    </Link>
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                        t.status === "inscricoes"
+                          ? "bg-green-100 text-green-700"
+                          : t.status === "em_andamento"
+                          ? "bg-amber-100 text-amber-700"
+                          : "bg-slate-200 text-slate-600"
+                      }`}
+                    >
+                      {TOURNAMENT_STATUS_LABELS[t.status]}
+                    </span>
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    {t.city ?? ""}
+                    {t.organizer_name ? ` · org.: ${t.organizer_name}` : ""}
+                  </div>
+                  <div className="text-xs text-slate-400">
+                    {Number(t.category_count)} categoria{Number(t.category_count) === 1 ? "" : "s"} ·{" "}
+                    {Number(t.entry_count)} inscrito{Number(t.entry_count) === 1 ? "" : "s"}
+                  </div>
+                </div>
+                {/* Ação conforme o status do torneio */}
+                {t.is_organizer ? (
+                  <span className="shrink-0 rounded-full bg-amber-100 px-3 py-1.5 text-xs font-bold text-amber-700">
+                    Organizador
+                  </span>
+                ) : t.am_entered ? (
+                  <Link
+                    href={`/ranking/torneio/${t.id}`}
+                    className="shrink-0 rounded-full bg-green-100 px-3 py-1.5 text-xs font-bold text-green-700"
+                  >
+                    Inscrito ✓
+                  </Link>
+                ) : t.status === "inscricoes" ? (
+                  <Link href={`/ranking/torneio/${t.id}`} className="btn-primary shrink-0 text-xs">
+                    Inscrever →
+                  </Link>
+                ) : (
+                  <span className="shrink-0 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-500">
+                    {t.status === "em_andamento" ? "Em andamento" : "Encerrado"}
+                  </span>
                 )}
               </div>
             </li>
